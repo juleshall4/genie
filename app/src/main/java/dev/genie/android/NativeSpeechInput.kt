@@ -11,7 +11,8 @@ import android.speech.SpeechRecognizer
 
 class NativeSpeechInput(
     private val context: Context,
-    private val onUpdate: (status: Int, transcript: String?, finished: Boolean) -> Unit
+    private val onUpdate: (status: Int, transcript: String?, finished: Boolean) -> Unit,
+    private val onFinalTranscript: (String) -> Unit = {}
 ) {
     private var recognizer: SpeechRecognizer? = null
     private var modelDownloadAttempted = false
@@ -44,12 +45,14 @@ class NativeSpeechInput(
             }
 
             override fun onResults(results: Bundle?) {
+                if (recognizer !== session) return
                 val text = transcript(results)
                 update(
                     if (text == null) R.string.speech_no_match else R.string.speech_done,
                     text,
                     finished = true
                 )
+                if (text != null) onFinalTranscript(text)
             }
 
             override fun onError(error: Int) {

@@ -99,5 +99,58 @@
             android:text="@string/scope_notice"
             android:textColor="@color/muted"
             android:textSize="14sp" />
+        <TextView
+            android:id="@+id/chatgpt_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/chatgpt_connect_needed"
+            android:textColor="@color/ink"
+            android:textSize="16sp" />
+        <Button
+            android:id="@+id/chatgpt_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/chatgpt_continue"
+            android:textAllCaps="false" />
+        <Button
+            android:id="@+id/chatgpt_model"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/chatgpt_choose_model"
+            android:textAllCaps="false"
+            android:enabled="false" />
+        <Button
+            android:id="@+id/chatgpt_reasoning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/chatgpt_choose_reasoning"
+            android:textAllCaps="false"
+            android:enabled="false" />
+        <TextView
+            android:id="@+id/chatgpt_configuration_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/chatgpt_configuration_help"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+        <Button
+            android:id="@+id/chatgpt_refresh_models"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/chatgpt_refresh_models"
+            android:textAllCaps="false" />
+        <Button
+            android:id="@+id/chatgpt_usage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/chatgpt_manage_usage"
+            android:textAllCaps="false" />
     </LinearLayout>
 </ScrollView>
