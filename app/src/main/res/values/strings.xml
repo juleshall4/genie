@@ -1,5 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="read_aloud_install">Install TensorSpeak and download Inflect Nano to hear answers offline.</string>
+    <string name="read_aloud_download">Open TensorSpeak and download the Nano voice to hear answers offline.</string>
+    <string name="read_aloud_failed">Couldn’t read this answer aloud. Check the Nano voice in TensorSpeak.</string>
+    <string name="read_aloud_preparing">Preparing offline speech…</string>
+    <string name="read_aloud_speaking">Speaking · Inflect Nano · Offline</string>
+    <string name="read_aloud_ready">Read aloud with Inflect Nano · Offline</string>
+    <string name="read_aloud_settings">Set up offline voice</string>
+    <string name="read_aloud_test">Try offline voice</string>
+    <string name="read_aloud_sample">Hello, I’m Genie. My voice runs locally on your device.</string>
+    <string name="read_aloud_help">Genie reads answers aloud using Inflect Nano. Install TensorSpeak, then download Nano in its Voices tab. Speech stays on your device.</string>
     <string name="app_name">Genie</string>
     <string name="tagline">A little help, one press away.</string>
     <string name="prototype_label">VOICE PROTOTYPE</string>

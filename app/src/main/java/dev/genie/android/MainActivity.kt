@@ -24,6 +24,7 @@ class MainActivity : Activity() {
     private var modelRequest: ChatGptRequest? = null
     private var modelCatalog: ChatGptModels? = null
     private var modelAccountId: String? = null
+    private var voicePreview: LocalSpeechOutput? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +49,17 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.chatgpt_model).setOnClickListener { chooseModel() }
         findViewById<Button>(R.id.chatgpt_reasoning).setOnClickListener { chooseReasoning() }
         findViewById<Button>(R.id.chatgpt_refresh_models).setOnClickListener { loadModels() }
+        findViewById<Button>(R.id.read_aloud_settings).setOnClickListener {
+            val setup = packageManager.getLaunchIntentForPackage(LocalSpeechOutput.ENGINE_PACKAGE)
+            if (setup != null) startActivity(setup)
+            else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AljGe/TensorSpeak/releases")))
+        }
+        findViewById<Button>(R.id.read_aloud_test).setOnClickListener {
+            voicePreview?.close()
+            voicePreview = LocalSpeechOutput(this) { status ->
+                findViewById<TextView>(R.id.read_aloud_status).setText(status)
+            }.also { it.speak(getString(R.string.read_aloud_sample)) }
+        }
     }
 
     override fun onResume() {
@@ -89,6 +101,8 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        voicePreview?.close()
+        voicePreview = null
         modelRequest?.cancel()
         super.onStop()
     }

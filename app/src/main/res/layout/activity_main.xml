@@ -100,6 +100,33 @@
             android:textColor="@color/muted"
             android:textSize="14sp" />
         <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/read_aloud_help"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+        <Button
+            android:id="@+id/read_aloud_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/read_aloud_settings"
+            android:textAllCaps="false" />
+        <Button
+            android:id="@+id/read_aloud_test"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/read_aloud_test"
+            android:textAllCaps="false" />
+        <TextView
+            android:id="@+id/read_aloud_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+        <TextView
             android:id="@+id/chatgpt_status"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

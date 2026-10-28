@@ -24,6 +24,7 @@ class GenieOverlay(private val context: Context) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private var popup: View? = null
     private var speechInput: NativeSpeechInput? = null
+    private var speechOutput: LocalSpeechOutput? = null
     private var generation = 0
     private val chatGpt = ChatGptClient.get(context)
     private var answerRequest: ChatGptRequest? = null
@@ -39,6 +40,8 @@ class GenieOverlay(private val context: Context) {
 
     fun hide() {
         generation++
+        speechOutput?.close()
+        speechOutput = null
         speechInput?.close()
         speechInput = null
         answerRequest?.cancel()
@@ -70,6 +73,12 @@ class GenieOverlay(private val context: Context) {
         }
         windowManager.addView(view, params)
         popup = view
+        speechOutput = LocalSpeechOutput(context) { status ->
+            if (popup === view) view.findViewById<TextView>(R.id.read_aloud_status).apply {
+                setText(status)
+                visibility = View.VISIBLE
+            }
+        }
         if (question != null) {
             displayTranscript(view, question)
             sendTranscript(view, question)
@@ -84,6 +93,8 @@ class GenieOverlay(private val context: Context) {
         context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun startListening(view: View) {
+        speechOutput?.stop()
+        view.findViewById<View>(R.id.read_aloud_status).visibility = View.GONE
         speechInput?.close()
         answerRequest?.cancel()
         answerRequest = null
@@ -166,6 +177,7 @@ class GenieOverlay(private val context: Context) {
                     null -> {
                         history.add(ChatTurn("user", question))
                         history.add(ChatTurn("assistant", answer))
+                        speechOutput?.speak(answer)
                         action(view, R.string.speech_retry) { startListening(view) }
                     }
                     R.string.chatgpt_connect_needed, R.string.chatgpt_plan_permission_needed ->
