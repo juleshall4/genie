@@ -3,6 +3,7 @@ package dev.genie.android.chatgpt
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import dev.genie.android.R
 import okhttp3.Call
 import okhttp3.FormBody
@@ -39,6 +40,7 @@ class ChatGptClient private constructor(context: Context) {
     val store = ChatGptStore(context)
     val settings = ChatGptSettings(context)
     private val main = Handler(Looper.getMainLooper())
+    private val modelCache = ModelCatalogCache(SystemClock::elapsedRealtime)
     private val worker = Executors.newSingleThreadExecutor()
     private val http = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS)
@@ -60,6 +62,7 @@ class ChatGptClient private constructor(context: Context) {
     fun select(clientId: String) {
         synchronized(stateLock) {
             requests.forEach { it.cancel() }
+            modelCache.clear()
             store.select(clientId)
         }
     }
@@ -69,6 +72,7 @@ class ChatGptClient private constructor(context: Context) {
             signIn?.cancel()
             signIn = null
             requests.forEach { it.cancel() }
+            modelCache.clear()
             store.active()?.also {
                 // Keep the registration, but prevent further requests immediately.
                 store.save(it.copy(accessToken = "", refreshToken = "", idToken = "", expiresAt = 0))
@@ -99,15 +103,24 @@ class ChatGptClient private constructor(context: Context) {
             try {
                 if (operation.cancelled) return@execute
                 if (accountId == null) throw ChatGptFailure(R.string.chatgpt_connect_needed)
-                val (account, catalog) = catalog(accountId, operation)
-                val body = settings.selection(accountId, catalog).requestBody(turns)
-                val request = Request.Builder().url("https://api.openai.com/v1/responses")
-                    .header("Authorization", "Bearer ${account.accessToken}")
-                    .header("Accept", "text/event-stream")
-                    .post(body.toString().toRequestBody("application/json".toMediaType())).build()
-                val call = http.newCall(request)
-                operation.attach(call)
-                call.execute().use { response ->
+                fun openAnswer(refreshAccess: Boolean): okhttp3.Response {
+                    val (account, catalog) = catalog(accountId, operation, refreshAccess = refreshAccess)
+                    val body = settings.selection(accountId, catalog).requestBody(turns)
+                    val request = Request.Builder().url("https://api.openai.com/v1/responses")
+                        .header("Authorization", "Bearer ${account.accessToken}")
+                        .header("Accept", "text/event-stream")
+                        .post(body.toString().toRequestBody("application/json".toMediaType())).build()
+                    val call = http.newCall(request)
+                    operation.attach(call)
+                    return call.execute()
+                }
+                var response = openAnswer(refreshAccess = false)
+                if (response.code == 401 && !operation.cancelled) {
+                    response.close()
+                    modelCache.clear()
+                    response = openAnswer(refreshAccess = true)
+                }
+                response.use {
                     checkStatus(response.code, if (response.isSuccessful) null else response.body?.string())
                     val reader = response.body?.charStream()?.buffered()
                         ?: throw ChatGptFailure(R.string.chatgpt_interrupted)
@@ -118,6 +131,7 @@ class ChatGptClient private constructor(context: Context) {
                 main.post { if (!operation.cancelled) onDone(null) }
             } catch (error: Exception) {
                 val message = (error as? ChatGptFailure)?.messageResource ?: R.string.chatgpt_network_error
+                if (error is ChatGptFailure) modelCache.clear()
                 main.post { if (!operation.cancelled) onDone(message) }
             } finally {
                 requests.remove(operation)
@@ -126,7 +140,7 @@ class ChatGptClient private constructor(context: Context) {
         return operation
     }
 
-    fun models(onDone: (ChatGptModels?, Int?) -> Unit): ChatGptRequest {
+    fun models(refresh: Boolean = true, onDone: (ChatGptModels?, Int?) -> Unit): ChatGptRequest {
         val operation = ChatGptRequest()
         val accountId = store.active()?.takeIf { it.connected }?.clientId
         requests.add(operation)
@@ -134,7 +148,7 @@ class ChatGptClient private constructor(context: Context) {
             try {
                 if (operation.cancelled) return@execute
                 if (accountId == null) throw ChatGptFailure(R.string.chatgpt_connect_needed)
-                val models = catalog(accountId, operation).second
+                val models = catalog(accountId, operation, refresh).second
                 main.post { if (!operation.cancelled) onDone(models, null) }
             } catch (failure: Exception) {
                 val message = (failure as? ChatGptFailure)?.messageResource ?: R.string.chatgpt_network_error
@@ -146,15 +160,27 @@ class ChatGptClient private constructor(context: Context) {
         return operation
     }
 
-    private fun catalog(clientId: String, operation: ChatGptRequest): Pair<ChatGptAccount, ChatGptModels> {
-        var account = access(clientId, operation)
+    private fun catalog(
+        clientId: String,
+        operation: ChatGptRequest,
+        refresh: Boolean = false,
+        refreshAccess: Boolean = false
+    ): Pair<ChatGptAccount, ChatGptModels> {
+        var account = access(clientId, operation, force = refreshAccess)
+        if (!refresh) modelCache.get(clientId, account.accessToken)?.let { return account to it }
         var response = authorizedGet("https://api.openai.com/v1/models", account.accessToken, operation)
         if (response.first == 401) {
             account = access(clientId, operation, force = true)
             response = authorizedGet("https://api.openai.com/v1/models", account.accessToken, operation)
         }
         checkStatus(response.first, response.second)
-        return account to ChatGptModels.parse(JSONObject(response.second))
+        val catalog = ChatGptModels.parse(JSONObject(response.second))
+        synchronized(stateLock) {
+            if (!operation.cancelled && store.active()?.accessToken == account.accessToken) {
+                modelCache.put(clientId, account.accessToken, catalog)
+            }
+        }
+        return account to catalog
     }
 
     private fun access(clientId: String, operation: ChatGptRequest, force: Boolean = false): ChatGptAccount = synchronized(refreshLock) {

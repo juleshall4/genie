@@ -14,6 +14,19 @@ Genie selects the engine directly, so changing Android's default speech engine i
 
 The companion engine is separately installed and licensed (GPL-3.0-or-later); Inflect weights are Apache-2.0. Genie communicates through Android's standard text-to-speech interface and does not bundle TensorSpeak source or binaries.
 
+## Response latency
+
+Genie prepares account access and the model catalog when the overlay opens, while you speak. Successful catalog results are reused for five minutes for the same account and access token. Switching accounts, signing out, and API errors invalidate the cached catalog. Settings can still explicitly refresh available models. OpenAI checks usage and model access on every answer request.
+
+To measure first answer text using the saved account and model settings (two live ChatGPT requests):
+
+```sh
+./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.chatgpt.ResponseLatencyCheck
+adb shell am instrument -w -e live_chatgpt true dev.genie.android.test/dev.genie.android.chatgpt.ResponseLatencyCheck
+```
+
+On the emulator on October 28, 2026, GPT-6 Luna with low reasoning took 2,617 ms and 2,044 ms to first text before catalog caching, versus 1,949 ms and 1,175 ms afterward. These are two samples per version, measured after a model lookup; they show the warm path and do not measure speech recognition, physical-device speed, or guarantee future network latency.
+
 ## Build and install
 
 With Android SDK 36, a compatible JDK, and an emulator or device connected through adb:
