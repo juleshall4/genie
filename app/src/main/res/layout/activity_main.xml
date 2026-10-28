@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+        <ImageView
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_genie" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/app_name"
+            android:textColor="@color/ink"
+            android:textSize="40sp"
+            android:fontFamily="sans-serif-medium" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/tagline"
+            android:textColor="@color/muted"
+            android:textSize="16sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:letterSpacing="0.12"
+            android:text="@string/prototype_label"
+            android:textColor="@color/muted"
+            android:textSize="11sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/setup_title"
+            android:textColor="@color/ink"
+            android:textSize="24sp"
+            android:fontFamily="sans-serif-medium" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/setup_body"
+            android:textColor="@color/muted"
+            android:textSize="16sp" />
+        <TextView
+            android:id="@+id/shortcut_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/shortcut_disabled"
+            android:textColor="@color/ink"
+            android:textSize="14sp" />
+        <Button
+            android:id="@+id/shortcut_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="56dp"
+            android:backgroundTint="@color/ink"
+            android:text="@string/enable_shortcut"
+            android:textAllCaps="false"
+            android:textColor="@android:color/white" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/setup_help"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/shortcut_notice"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+        <Button
+            android:id="@+id/microphone_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:minHeight="48dp"
+            android:text="@string/enable_microphone"
+            android:textAllCaps="false" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/scope_notice"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+    </LinearLayout>
+</ScrollView>

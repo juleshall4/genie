@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Genie</string>
+    <string name="tagline">A little help, one press away.</string>
+    <string name="prototype_label">VOICE PROTOTYPE</string>
+    <string name="setup_title">Your shortcut to Genie</string>
+    <string name="setup_body">Enable the Space shortcut, then open any app in the emulator and press your Mac’s spacebar.</string>
+    <string name="enable_shortcut">Enable Space shortcut</string>
+    <string name="manage_shortcut">Manage Space shortcut</string>
+    <string name="shortcut_enabled">Space shortcut is enabled</string>
+    <string name="shortcut_disabled">Space shortcut is off</string>
+    <string name="setup_help">In Accessibility settings, select Genie Space shortcut and turn it on. Click inside the emulator before pressing Space.</string>
+    <string name="shortcut_notice">While enabled, Space opens or closes Genie instead of typing a space. Turn the service off in Accessibility settings to type normally.</string>
+    <string name="scope_notice">Genie uses Android’s speech service to turn your voice into text. That service may use the internet. Genie does not read the screen or send anything to ChatGPT yet.</string>
+    <string name="shortcut_service_name">Genie Space shortcut</string>
+    <string name="shortcut_service_description">Use Space to open or close Genie above any app. This emulator shortcut intercepts the Space key but does not read screen content. Turn it off here to restore normal Space typing.</string>
+    <string name="enable_microphone">Enable microphone</string>
+    <string name="speech_starting">Starting microphone…</string>
+    <string name="speech_listening">Listening…</string>
+    <string name="speech_processing">Finishing transcription…</string>
+    <string name="speech_done">Here’s what you said</string>
+    <string name="speech_retry">Listen again</string>
+    <string name="speech_permission_needed">Allow microphone access to start listening.</string>
+    <string name="speech_unavailable">No Android speech service is available. Install or enable one in Android settings.</string>
+    <string name="speech_no_match">Didn’t catch that. Try speaking again.</string>
+    <string name="speech_network_error">Speech recognition couldn’t connect. Check your internet connection and try again.</string>
+    <string name="speech_audio_error">Couldn’t access the microphone. Check Android’s microphone controls and try again.</string>
+    <string name="speech_busy">The speech service is busy. Try again in a moment.</string>
+    <string name="speech_language_unavailable">Speech recognition isn’t ready for this language. Check Android’s speech settings.</string>
+    <string name="speech_downloading_model">Asking Android to download speech support…</string>
+    <string name="speech_download_scheduled">Android has scheduled a speech model download. Try again when it’s ready.</string>
+    <string name="speech_failed">Speech recognition couldn’t finish. Try again.</string>
+    <string name="popup_hint">Press Space again to dismiss</string>
+    <string name="close_overlay">Close Genie</string>
+</resources>

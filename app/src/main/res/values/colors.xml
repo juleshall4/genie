@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="page">#F5F4EF</color>
+    <color name="ink">#203E35</color>
+    <color name="muted">#5B6860</color>
+    <color name="accent">#D4EFAD</color>
+    <color name="popup">#183A30</color>
+    <color name="popup_muted">#C4D4C9</color>
+</resources>
