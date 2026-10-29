@@ -28,7 +28,11 @@ class BoxBlur(private val context: Context) {
     private val location = IntArray(2)
     private var corner = -1f
     private val follow = ViewTreeObserver.OnPreDrawListener { sync(); true }
-    private val enabled = Consumer<Boolean> { on -> dialog?.window?.setBackgroundBlurRadius(if (on) radius else 0) }
+    private val enabled = Consumer<Boolean> { on ->
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dialog?.window?.setBackgroundBlurRadius(if (on) radius else 0)
+        }
+    }
 
     /** Adds the blur window; call before adding the overlay window so it sits underneath. */
     fun show() {
@@ -48,9 +52,10 @@ class BoxBlur(private val context: Context) {
                     height = 1
                     fitInsetsTypes = 0
                 }
-                setBackgroundBlurRadius(radius)
             }
             show()
+            // The blur API needs the decor view created by Dialog.show().
+            window!!.setBackgroundBlurRadius(radius)
         }
         windowManager.addCrossWindowBlurEnabledListener(context.mainExecutor, enabled)
     }

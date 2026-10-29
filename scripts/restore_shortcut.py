@@ -11,10 +11,21 @@ def shell(adb, serial, *args):
     return subprocess.check_output([adb, "-s", serial, "shell", *args], text=True).strip()
 
 
+def section(state, name):
+    return state.partition(name + ":")[2].split("\n", 1)[0]
+
+
 def connected(adb, serial):
     state = shell(adb, serial, "dumpsys", "accessibility")
-    bound = state.split("Bound services:", 1)[-1].split("Enabled services:", 1)[0]
-    return "Genie Space shortcut" in bound
+    return ("Genie Space shortcut" in section(state, "Bound services")
+            and COMPONENT not in section(state, "Crashed services"))
+
+
+def detached(adb, serial):
+    state = shell(adb, serial, "dumpsys", "accessibility")
+    return ("Genie Space shortcut" not in section(state, "Bound services")
+            and all(COMPONENT not in section(state, name)
+                    for name in ("Enabled services", "Binding services", "Crashed services")))
 
 
 def restore(adb, serial):
@@ -23,26 +34,36 @@ def restore(adb, serial):
     if COMPONENT not in services:
         print("Space shortcut is off; leaving it off.")
         return
-    if not connected(adb, serial):
-        others = [service for service in services if service != COMPONENT]
-        if others:
-            shell(adb, serial, "settings", "put", "secure", "enabled_accessibility_services", ":".join(others))
-        else:
-            shell(adb, serial, "settings", "delete", "secure", "enabled_accessibility_services")
-        # Observe removal before re-adding: Android processes settings changes asynchronously.
-        deadline = time.monotonic() + 5
+    for _ in range(3):
+        if not connected(adb, serial):
+            others = [service for service in services if service != COMPONENT]
+            if others:
+                shell(adb, serial, "settings", "put", "secure", "enabled_accessibility_services", ":".join(others))
+            else:
+                shell(adb, serial, "settings", "delete", "secure", "enabled_accessibility_services")
+            try:
+                deadline = time.monotonic() + 5
+                while not detached(adb, serial):
+                    if time.monotonic() >= deadline:
+                        raise RuntimeError("Space shortcut did not fully disconnect")
+                    time.sleep(0.1)
+            finally:
+                shell(adb, serial, "settings", "put", "secure", "enabled_accessibility_services", enabled)
+                shell(adb, serial, "settings", "put", "secure", "accessibility_enabled", "1")
+        deadline = time.monotonic() + 10
         while time.monotonic() < deadline:
-            if COMPONENT not in shell(adb, serial, "dumpsys", "accessibility").split("Enabled services:", 1)[-1].splitlines()[0]:
+            if connected(adb, serial):
+                # Package replacement can report the old binding before its binder dies.
+                time.sleep(0.5)
+                if connected(adb, serial):
+                    print("Space shortcut is connected.")
+                    return
+                break
+            state = shell(adb, serial, "dumpsys", "accessibility")
+            if COMPONENT in section(state, "Crashed services"):
                 break
             time.sleep(0.1)
-        shell(adb, serial, "settings", "put", "secure", "enabled_accessibility_services", enabled)
-        shell(adb, serial, "settings", "put", "secure", "accessibility_enabled", "1")
-        deadline = time.monotonic() + 10
-        while not connected(adb, serial):
-            if time.monotonic() >= deadline:
-                raise RuntimeError("Space shortcut did not reconnect")
-            time.sleep(0.1)
-    print("Space shortcut is connected.")
+    raise RuntimeError("Space shortcut did not reconnect")
 
 
 def devices(adb):
