@@ -2,6 +2,18 @@
 
 An Android assistant with a Space-triggered overlay, speech recognition, and answers through your connected ChatGPT account.
 
+## Personality and model defaults
+
+The **Personality** box in settings starts with Genie's original prompt:
+
+> You are Genie, a helpful mobile assistant. Answer clearly and briefly in plain text. Avoid unnecessary formatting.
+
+Edits save automatically on this installation and are sent as `instructions` on the next question over both the WebSocket and HTTP paths. **Reset personality** restores the original text. Space types normally while the box is focused; the global shortcut resumes when editing ends or settings closes.
+
+Without an explicit saved model, Genie prefers **GPT-6 Luna** when available in the account's catalog. Without a saved reasoning choice, it prefers **Low** when the selected model supports it. If Luna is unavailable, the automatic selection uses the first available model; if Low is unavailable, the model's advertised default is used. Explicit saved selections remain unchanged.
+
+The ChatGPT connection can accept images and use OpenAI web search when the selected model and account policies permit. Genie's current app sends text only and does not yet expose photo input or enable a web-search tool. It does not connect directly to Google Search. [Connection limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+
 ## Spoken answers with Chirp 3 HD
 
 Genie reads answers with Google Cloud Chirp 3 HD. Settings include all 30 British Chirp voices and four American voices, speaking speeds from 0.25× to 2×, a preview, an on/off switch, and a monthly character meter. Speed and voice choices are saved and apply to the next spoken answer. Closing the popup or selecting **Listen again** cancels pending speech and stops playback. Silent and vibrate modes block speech requests, previews, and character reservations. Entering either mode cancels pending speech and playback; that answer does not resume automatically when sound is restored. TensorSpeak and Inflect Nano are no longer used.

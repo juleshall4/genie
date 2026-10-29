@@ -104,6 +104,8 @@
     <string name="chatgpt_usage_unavailable">ChatGPT couldn’t check usage availability. Please try again later.</string>
     <string name="chatgpt_unsupported_request">This account or model doesn’t support the requested capability.</string>
     <string name="chatgpt_open_settings">Open settings</string>
+    <string name="chatgpt_personality">Personality</string>
+    <string name="chatgpt_reset_personality">Reset personality</string>
     <string name="chatgpt_choose_model">Choose model</string>
     <string name="chatgpt_choose_reasoning">Choose reasoning level</string>
     <string name="chatgpt_loading_models">Loading models for this ChatGPT account…</string>
@@ -111,8 +113,8 @@
     <string name="chatgpt_model_value">Model: %1$s</string>
     <string name="chatgpt_reasoning_value">Reasoning: %1$s</string>
     <string name="chatgpt_automatic_model">Automatic (%1$s)</string>
-    <string name="chatgpt_model_default">Model default</string>
-    <string name="chatgpt_default_reasoning">Model default (%1$s)</string>
+    <string name="chatgpt_model_default">Default</string>
+    <string name="chatgpt_default_reasoning">Default (%1$s)</string>
     <string name="chatgpt_reasoning_extra_high">Extra high</string>
     <string name="chatgpt_configuration_help">Lower reasoning is faster and usually uses less allowance. Choices are saved for this account and apply to your next question.</string>
     <string name="chatgpt_model_unavailable">Your saved model is no longer available. Choose another model in settings.</string>

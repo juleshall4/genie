@@ -48,6 +48,22 @@ class MainActivity : Activity() {
         }
         findViewById<Button>(R.id.chatgpt_model).setOnClickListener { chooseModel() }
         findViewById<Button>(R.id.chatgpt_reasoning).setOnClickListener { chooseReasoning() }
+        val personalitySettings = ChatGptClient.get(this).settings
+        findViewById<android.widget.EditText>(R.id.chatgpt_personality).apply {
+            setText(personalitySettings.personality)
+            setOnFocusChangeListener { _, focused -> GenieShortcutService.editingPersonality = focused }
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(text: CharSequence?, start: Int, count: Int, after: Int) = Unit
+                override fun onTextChanged(text: CharSequence?, start: Int, before: Int, count: Int) {
+                    personalitySettings.personality = text?.toString().orEmpty()
+                }
+                override fun afterTextChanged(text: android.text.Editable?) = Unit
+            })
+        }
+        findViewById<Button>(R.id.chatgpt_reset_personality).setOnClickListener {
+            findViewById<android.widget.EditText>(R.id.chatgpt_personality).setText(
+                dev.genie.android.chatgpt.ChatGptSettings.DEFAULT_PERSONALITY)
+        }
         findViewById<Button>(R.id.chatgpt_refresh_models).setOnClickListener { loadModels() }
         findViewById<Button>(R.id.read_aloud_settings).setOnClickListener { configureSpeech() }
         findViewById<Button>(R.id.read_aloud_voice).setOnClickListener {
@@ -97,6 +113,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        GenieShortcutService.editingPersonality = findViewById<android.widget.EditText>(R.id.chatgpt_personality).hasFocus()
         val manager = getSystemService(AccessibilityManager::class.java)
         val component = ComponentName(this, GenieShortcutService::class.java)
         val enabled = manager.getEnabledAccessibilityServiceList(
@@ -196,6 +213,7 @@ class MainActivity : Activity() {
     }
 
     override fun onStop() {
+        GenieShortcutService.editingPersonality = false
         voicePreview?.close()
         voicePreview = null
         modelRequest?.cancel()
@@ -248,7 +266,7 @@ class MainActivity : Activity() {
         val effort = settings.reasoning(account, model.slug)
         findViewById<Button>(R.id.chatgpt_reasoning).apply {
             isEnabled = model.reasoningLevels.isNotEmpty() || effort != null
-            text = getString(R.string.chatgpt_reasoning_value, if (effort == null) defaultReasoning(model.defaultEffort) else effortLabel(effort))
+            text = getString(R.string.chatgpt_reasoning_value, if (effort == null) defaultReasoning(model.preferredEffort) else effortLabel(effort))
         }
         try {
             model.selectReasoning(effort)
@@ -263,7 +281,7 @@ class MainActivity : Activity() {
         if (catalog.models.isEmpty()) return
         val settings = ChatGptClient.get(this).settings
         val selected = settings.model(account)
-        val labels = listOf(getString(R.string.chatgpt_automatic_model, catalog.models.first().displayName)) +
+        val labels = listOf(getString(R.string.chatgpt_automatic_model, catalog.selectModel(null).displayName)) +
             catalog.models.map { it.displayName }
         val checked = if (selected == null) 0 else catalog.models.indexOfFirst { it.slug == selected }.let { if (it < 0) -1 else it + 1 }
         AlertDialog.Builder(this).setTitle(R.string.chatgpt_choose_model)
@@ -282,7 +300,7 @@ class MainActivity : Activity() {
         val settings = ChatGptClient.get(this).settings
         val model = catalog.selectModel(settings.model(account))
         val selected = settings.reasoning(account, model.slug)
-        val labels = listOf(defaultReasoning(model.defaultEffort)) + model.reasoningLevels.map {
+        val labels = listOf(defaultReasoning(model.preferredEffort)) + model.reasoningLevels.map {
             effortLabel(it.effort) + if (it.description.isBlank()) "" else " — ${it.description}"
         }
         val checked = if (selected == null) 0 else model.reasoningLevels.indexOfFirst { it.effort == selected }.let { if (it < 0) -1 else it + 1 }

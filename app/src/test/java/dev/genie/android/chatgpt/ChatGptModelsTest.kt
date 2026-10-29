@@ -64,4 +64,27 @@ class ChatGptModelsTest {
         val catalog = ChatGptModels.parse(JSONObject("""{"models":[{"slug":"simple","visibility":"list"}]}"""))
         assertFalse(catalog.selectModel(null).selectReasoning(null).requestBody(listOf(ChatTurn("user", "Hello"))).has("reasoning"))
     }
+    @Test fun defaultPrefersLunaLowEvenWhenServerOrderAndDefaultsDiffer() {
+        val catalog = ChatGptModels.parse(JSONObject("""{"models":[
+          {"slug":"other","visibility":"list"},
+          {"slug":"gpt-6-luna","visibility":"list","default_reasoning_level":"medium",
+           "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"}]}
+        ]}"""))
+        val selection = catalog.selectModel(null).selectReasoning(null)
+        val body = selection.requestBody(listOf(ChatTurn("user", "Hello")))
+        assertEquals("gpt-6-luna", body.getString("model"))
+        assertEquals("low", body.getJSONObject("reasoning").getString("effort"))
+        assertEquals("medium", catalog.selectModel(null).selectReasoning("medium").effort)
+    }
+
+    @Test fun personalityIsSentAsInstructionsWithoutChangingTheQuestion() {
+        val selection = catalog().selectModel(null).selectReasoning(null)
+        val prompt = "Be warm and playful.\nUse short answers, with \"examples\"."
+        val body = selection.requestBody(listOf(ChatTurn("user", "Hello")), prompt)
+        assertEquals(prompt, body.getString("instructions"))
+        assertEquals("Hello", body.getJSONArray("input").getJSONObject(0).getString("content"))
+        assertEquals(ChatGptSettings.DEFAULT_PERSONALITY,
+            selection.requestBody(listOf(ChatTurn("user", "Hello"))).getString("instructions"))
+    }
+
 }

@@ -72,6 +72,20 @@ class ChatGptLiveCheck : Instrumentation() {
         }
         try {
             val settings = ChatGptSettings(context)
+            check(settings.personality == ChatGptSettings.DEFAULT_PERSONALITY)
+            val prompt = "Be cheerful.\nKeep replies short and use British English."
+            settings.personality = prompt
+            check(ChatGptSettings(context).personality == prompt)
+            val defaults = ChatGptModels.parse(JSONObject("""{"models":[
+                {"slug":"other","visibility":"list"},
+                {"slug":"gpt-6-luna","visibility":"list","default_reasoning_level":"medium",
+                 "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"}]}
+            ]}"""))
+            val fresh = settings.selection("new-account", defaults)
+            check(fresh.model.slug == "gpt-6-luna" && fresh.effort == "low")
+            check(fresh.requestBody(listOf(ChatTurn("user", "Hello")), settings.personality).getString("instructions") == prompt)
+            settings.personality = ChatGptSettings.DEFAULT_PERSONALITY
+            check(ChatGptSettings(context).personality == ChatGptSettings.DEFAULT_PERSONALITY)
             settings.setModel("account-a", "model-a")
             settings.setReasoning("account-a", "model-a", "medium")
             settings.setReasoning("account-a", "model-b", "low")
@@ -85,7 +99,7 @@ class ChatGptLiveCheck : Instrumentation() {
             restored.setModel("account-a", null)
             restored.setReasoning("account-a", "model-a", null)
             check(settings.model("account-a") == null && settings.reasoning("account-a", "model-a") == null)
-            finish(Activity.RESULT_OK, Bundle().apply { putString("stream", "PASS: settings persist, remain scoped by account and model, and reset to defaults.") })
+            finish(Activity.RESULT_OK, Bundle().apply { putString("stream", "PASS: personality persists and resets; fresh selection is Luna Low; model/effort choices persist by account.") })
         } catch (failure: Exception) {
             finish(Activity.RESULT_CANCELED, Bundle().apply { putString("stream", "Settings check failed: ${failure.javaClass.simpleName}") })
         } finally {

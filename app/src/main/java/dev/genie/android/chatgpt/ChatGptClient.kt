@@ -109,6 +109,7 @@ class ChatGptClient private constructor(context: Context) {
     }
 
     fun answer(turns: List<ChatTurn>, onText: (String) -> Unit, onDone: (Int?) -> Unit): ChatGptRequest {
+        val personality = settings.personality
         val operation = ChatGptRequest()
         val accountId = store.active()?.takeIf { it.connected }?.clientId
         requests.add(operation)
@@ -117,7 +118,7 @@ class ChatGptClient private constructor(context: Context) {
                 if (operation.cancelled) return@execute
                 if (accountId == null) throw ChatGptFailure(R.string.chatgpt_connect_needed)
                 val (account, catalog) = catalog(accountId, operation)
-                val body = settings.selection(accountId, catalog).requestBody(turns)
+                val body = settings.selection(accountId, catalog).requestBody(turns, personality)
                 val connection = connection(account)
                 operation.streamCancellation(connection::close)
                 val streamed = connection.answer(body) { text ->
@@ -132,7 +133,7 @@ class ChatGptClient private constructor(context: Context) {
                 if (operation.cancelled) return@execute
                 fun openAnswer(refreshAccess: Boolean): okhttp3.Response {
                     val (account, catalog) = catalog(accountId, operation, refreshAccess = refreshAccess)
-                    val body = settings.selection(accountId, catalog).requestBody(turns)
+                    val body = settings.selection(accountId, catalog).requestBody(turns, personality)
                     val request = Request.Builder().url("https://api.openai.com/v1/responses")
                         .header("Authorization", "Bearer ${account.accessToken}")
                         .header("Accept", "text/event-stream")

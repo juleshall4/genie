@@ -23,7 +23,7 @@ class GenieShortcutService : AccessibilityService() {
                 if (event.repeatCount > 0) return event.keyCode in capturedKeys
 
                 when {
-                    event.keyCode == KeyEvent.KEYCODE_SPACE && event.hasNoModifiers() -> {
+                    event.keyCode == KeyEvent.KEYCODE_SPACE && event.hasNoModifiers() && !editingPersonality -> {
                         capturedKeys.add(event.keyCode)
                         mainHandler.post { overlay.toggle() }
                         return true
@@ -61,7 +61,8 @@ class GenieShortcutService : AccessibilityService() {
         super.onDestroy()
     }
 
-    private companion object {
-        val dismissKeys = setOf(KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK)
+    companion object {
+        @Volatile var editingPersonality = false
+        private val dismissKeys = setOf(KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK)
     }
 }

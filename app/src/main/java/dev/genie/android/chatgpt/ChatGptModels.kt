@@ -12,19 +12,22 @@ data class ChatGptModel(
     val defaultEffort: String?,
     val reasoningLevels: List<ReasoningLevel>
 ) {
+    val preferredEffort: String?
+        get() = if (reasoningLevels.any { it.effort == "low" }) "low" else defaultEffort
+
     fun selectReasoning(effort: String?): ChatGptModelSelection {
         if (effort != null && reasoningLevels.none { it.effort == effort }) {
             throw ChatGptFailure(R.string.chatgpt_reasoning_unavailable)
         }
-        return ChatGptModelSelection(this, effort ?: defaultEffort)
+        return ChatGptModelSelection(this, effort ?: preferredEffort)
     }
 }
 
 data class ChatGptModelSelection(val model: ChatGptModel, val effort: String?) {
-    fun requestBody(turns: List<ChatTurn>): JSONObject {
+    fun requestBody(turns: List<ChatTurn>, personality: String = ChatGptSettings.DEFAULT_PERSONALITY): JSONObject {
         val input = JSONArray(turns.map { JSONObject().put("role", it.role).put("content", it.text) })
         return JSONObject().put("model", model.slug).put("input", input)
-            .put("instructions", "You are Genie, a helpful mobile assistant. Answer clearly and briefly in plain text. Avoid unnecessary formatting.")
+            .put("instructions", personality)
             .put("store", false).put("stream", true).apply {
                 if (effort != null) put("reasoning", JSONObject().put("effort", effort))
             }
@@ -33,7 +36,8 @@ data class ChatGptModelSelection(val model: ChatGptModel, val effort: String?) {
 
 class ChatGptModels(val models: List<ChatGptModel>) {
     fun selectModel(slug: String?): ChatGptModel = if (slug == null) {
-        models.firstOrNull() ?: throw ChatGptFailure(R.string.chatgpt_no_models)
+        models.firstOrNull { it.slug == ChatGptSettings.DEFAULT_MODEL }
+            ?: models.firstOrNull() ?: throw ChatGptFailure(R.string.chatgpt_no_models)
     } else {
         models.firstOrNull { it.slug == slug } ?: throw ChatGptFailure(R.string.chatgpt_model_unavailable)
     }
