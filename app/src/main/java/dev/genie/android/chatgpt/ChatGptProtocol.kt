@@ -15,7 +15,10 @@ import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.Base64
 
-class ChatGptFailure(val messageResource: Int) : IOException()
+class ChatGptFailure(val messageResource: Int, val errorCode: String? = null) : IOException() {
+    val unusableRefreshToken: Boolean get() = errorCode in setOf("invalid_grant", "invalid_refresh_token", "token_expired",
+        "refresh_token_expired", "refresh_token_invalidated", "refresh_token_reused")
+}
 
 fun chatGptError(code: String, fallback: Int): Int = when (code) {
     "subscription_sharing_user_not_eligible" -> R.string.chatgpt_ineligible

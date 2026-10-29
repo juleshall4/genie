@@ -17,7 +17,9 @@ Genie's settings list saved account registrations, support adding or selecting a
 
 Press Space, speak, and wait for transcription to finish. Genie sends only the final transcript to OpenAI, then streams the answer into a scrollable popup. Select **Listen again** to ask a follow-up using the same popup's conversation context.
 
-Before answering, Genie uses the selected ChatGPT model to add capitalization and punctuation to the final transcript. This separate request uses your ChatGPT plan and can add a short delay. Formatting does not use web search or the assistant's personality. Genie keeps the original transcript if formatting fails or changes its letters or numbers. Live text can remain unformatted while you speak.
+Wait for **Listening…** before speaking. If the microphone does not become ready within five seconds, or the speech service reports that it is busy or disconnects before speech begins, Genie retries startup once. If startup still fails, the popup shows a retry button.
+
+While answering, Genie uses the selected ChatGPT model to add capitalization and punctuation to the final transcript. This separate request uses your ChatGPT plan and runs independently of the answer. Formatting does not use web search or the assistant's personality. Genie keeps the original transcript if formatting fails, times out, or changes its words. Live text can remain unformatted while you speak.
 
 Closing the popup cancels recognition and any active response request and clears the popup's conversation. It does not undo usage already incurred. Transcripts and answers are not persisted. The connection does not provide access to existing ChatGPT conversations or memory.
 
@@ -32,6 +34,10 @@ Requests use the public Responses API, preferentially over a WebSocket prepared 
 Each account registration retains its issued client ID and verified identity. OAuth uses fresh state, nonce, and PKCE values; ID tokens are signature-verified against OpenAI's published keys and checked for issuer, audience, expiry, and nonce. Refreshes are serialized, and rotating credentials are replaced together.
 
 Credentials are encrypted with an Android Keystore AES-GCM key and written atomically inside the app's private, non-backed-up directory. Tokens are not logged or committed. The stable host ID is stored separately and reused across sign-ins.
+
+An in-progress credential renewal finishes even if you close the popup or switch accounts. Genie saves the replacement credentials without changing the selected account. A late renewal cannot restore credentials after sign-out.
+
+If OpenAI rejects the saved renewal token as unusable, Genie clears that registration's tokens and requests sign-in again with its existing client ID. Temporary server failures retain the saved credentials.
 
 ## Validate and install
 

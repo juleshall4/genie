@@ -31,6 +31,20 @@ class TranscriptFormattingCheck : Instrumentation() {
             check(formatted == "What is the weather like in Liverpool?") {
                 "Final transcript is still incorrect: $formatted"
             }
+            repeat(3) { turn ->
+                val answered = CountDownLatch(1)
+                var answer = ""
+                var answerError: Int? = null
+                val response = client.answer(listOf(ChatTurn("user", formatted)), onText = { answer = it }, onDone = {
+                    answerError = it
+                    answered.countDown()
+                })
+                try {
+                    check(answered.await(45, TimeUnit.SECONDS)) { "Answer ${turn + 1} timed out" }
+                    check(answerError == null) { "Answer ${turn + 1} failed: ${answerError?.let { targetContext.getString(it) }}" }
+                    check(answer.isNotBlank()) { "Answer ${turn + 1} was empty" }
+                } finally { response.cancel() }
+            }
             finish(Activity.RESULT_OK, Bundle().apply {
                 putString("stream", "PASS: $formatted (${SystemClock.elapsedRealtime() - started} ms)\n")
             })

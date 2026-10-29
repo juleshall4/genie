@@ -43,6 +43,7 @@ class GenieOverlay(private val context: Context) {
     private var generation = 0
     private val chatGpt = ChatGptClient.get(context)
     private var answerRequest: ChatGptRequest? = null
+    private var formattingRequest: ChatGptRequest? = null
     private var preparation: ChatGptRequest? = null
     private val history = mutableListOf<ChatTurn>()
     private var conversationAccount: String? = null
@@ -63,6 +64,8 @@ class GenieOverlay(private val context: Context) {
         speechInput = null
         answerRequest?.cancel()
         answerRequest = null
+        formattingRequest?.cancel()
+        formattingRequest = null
         preparation?.cancel()
         preparation = null
         chatGpt.closeConnection()
@@ -132,6 +135,8 @@ class GenieOverlay(private val context: Context) {
         speechInput?.close()
         answerRequest?.cancel()
         answerRequest = null
+        formattingRequest?.cancel()
+        formattingRequest = null
         preparation?.cancel()
         preparation = chatGpt.prepare()
         view.findViewById<TextView>(R.id.chatgpt_answer).apply { text = ""; visibility = View.GONE }
@@ -257,18 +262,12 @@ class GenieOverlay(private val context: Context) {
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     private fun sendTranscript(view: View, question: String) {
-        answerRequest?.cancel()
-        if (chatGpt.store.active()?.connected != true) {
-            answerTranscript(view, question)
-            return
-        }
-        setMode(view, BoxMode.Thinking)
-        setStatus(view, R.string.speech_processing)
-        view.findViewById<View>(R.id.speech_action).visibility = View.GONE
-        answerRequest = chatGpt.formatTranscript(question) { formatted, _ ->
+        formattingRequest?.cancel()
+        answerTranscript(view, question)
+        if (chatGpt.store.active()?.connected != true) return
+        formattingRequest = chatGpt.formatTranscript(question) { formatted, _ ->
             if (popup === view) {
                 displayTranscript(view, formatted)
-                answerTranscript(view, formatted)
             }
         }
     }
