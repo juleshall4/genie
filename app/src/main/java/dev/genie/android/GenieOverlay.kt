@@ -16,6 +16,7 @@ import android.net.Uri
 import android.transition.AutoTransition
 import android.transition.TransitionManager
 import android.util.TypedValue
+import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -34,6 +35,9 @@ import dev.genie.android.chatgpt.ChatTurn
 // thinking, then grows into the response box.
 private enum class BoxMode { Listening, Transcript, Thinking, Answer }
 
+// A finished question and answer, shown in the chat log above the latest response.
+private data class LoggedTurn(val question: CharSequence, val answer: String)
+
 class GenieOverlay(private val context: Context) {
     private val answerRenderer = AnswerRenderer(context)
     private val windowManager = context.getSystemService(WindowManager::class.java)
@@ -48,6 +52,13 @@ class GenieOverlay(private val context: Context) {
     private val history = mutableListOf<ChatTurn>()
     private var conversationAccount: String? = null
     private var mode: BoxMode? = null
+    private val log = mutableListOf<LoggedTurn>()
+    private var finishedTurn: LoggedTurn? = null
+    private var expanded = false
+    private var focusedAnswer: TextView? = null
+    private var topInset = 0
+    private var linkCard: LinkCard? = null
+    private var boxBlur: BoxBlur? = null
 
     val isShowing: Boolean
         get() = popup != null
@@ -71,6 +82,14 @@ class GenieOverlay(private val context: Context) {
         chatGpt.closeConnection()
         history.clear()
         conversationAccount = null
+        log.clear()
+        finishedTurn = null
+        expanded = false
+        focusedAnswer = null
+        linkCard?.clear()
+        linkCard = null
+        boxBlur?.dismiss()
+        boxBlur = null
         popup?.let {
             windowManager.removeView(it)
             it.findViewById<WebView>(R.id.orb).destroy()
@@ -87,8 +106,19 @@ class GenieOverlay(private val context: Context) {
             if (hasMicrophonePermission()) startListening(view) else requestMicrophonePermission()
         }
         view.findViewById<View>(R.id.chatgpt_plan).setOnClickListener { manageUsage() }
+        linkCard = LinkCard(view.findViewById(R.id.link_card)) { url ->
+            hide()
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        view.findViewById<PopupScrollView>(R.id.answer_scroll).apply {
+            // Scrolling up from the latest response opens the chat log; scrolling down past its end closes it.
+            onPullPastTop = { if (mode == BoxMode.Answer && !expanded && log.isNotEmpty()) setExpanded(view, true) }
+            onPullPastBottom = { if (expanded) setExpanded(view, false) }
+            setOnScrollChangeListener { _, _, _, _, _ -> if (expanded) focusNearestAnswer(view) }
+        }
         view.setOnApplyWindowInsetsListener { _, insets ->
             val bottom = insets.getInsets(WindowInsets.Type.systemBars()).bottom
+            topInset = insets.getInsets(WindowInsets.Type.systemBars()).top
             view.findViewById<View>(R.id.genie_box).apply {
                 layoutParams = (layoutParams as FrameLayout.LayoutParams).apply { bottomMargin = dp(8) + bottom }
             }
@@ -105,7 +135,10 @@ class GenieOverlay(private val context: Context) {
             fitInsetsTypes = 0
             title = context.getString(R.string.app_name)
         }
+        // The blur window goes in first so it sits under the overlay.
+        boxBlur = BoxBlur(context).also { it.show() }
         windowManager.addView(view, params)
+        boxBlur?.follow(view.findViewById(R.id.genie_box))
         popup = view
         setMode(view, BoxMode.Listening)
         speechOutput = ChirpSpeechOutput(context) { status ->
@@ -129,8 +162,8 @@ class GenieOverlay(private val context: Context) {
 
     private fun startListening(view: View) {
         speechOutput?.stop()
-        view.findViewById<View>(R.id.answer_sources).visibility = View.GONE
-        view.findViewById<View>(R.id.source_links).visibility = View.GONE
+        if (expanded) setExpanded(view, false)
+        linkCard?.clear()
         view.findViewById<View>(R.id.read_aloud_status).visibility = View.GONE
         speechInput?.close()
         answerRequest?.cancel()
@@ -195,6 +228,7 @@ class GenieOverlay(private val context: Context) {
             text = transcript
             visibility = View.VISIBLE
         }
+        view.findViewById<TextView>(R.id.current_question).text = transcript
         // Your words replace the status line while you speak.
         if (mode == BoxMode.Transcript) view.findViewById<View>(R.id.speech_status).visibility = View.GONE
     }
@@ -234,7 +268,11 @@ class GenieOverlay(private val context: Context) {
             width = if (wide) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
         }
         (box.background as GradientDrawable).cornerRadius = dp(if (answer) 32 else 28).toFloat()
-        if (answer) box.setPadding(dp(16), dp(16), dp(16), dp(18))
+        // The handle only appears once there are earlier turns to scroll back to.
+        val handle = answer && log.isNotEmpty()
+        view.findViewById<View>(R.id.swipe_handle).visibility = if (handle) View.VISIBLE else View.GONE
+        view.findViewById<View>(R.id.genie_header).visibility = if (answer) View.GONE else View.VISIBLE
+        if (answer) box.setPadding(dp(16), dp(if (handle) 8 else 16), dp(16), dp(18))
         else box.setPadding(dp(10), dp(10), dp(if (wide) 20 else 22), dp(10))
         view.findViewById<View>(R.id.genie_text).apply {
             layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
@@ -259,6 +297,113 @@ class GenieOverlay(private val context: Context) {
         view.findViewById<View>(R.id.answer_scroll).visibility = if (answer) View.VISIBLE else View.GONE
     }
 
+    private fun setExpanded(view: View, open: Boolean) {
+        if (expanded == open) return
+        expanded = open
+        TransitionManager.beginDelayedTransition(view as ViewGroup, AutoTransition().setDuration(220))
+        val box = view.findViewById<LinearLayout>(R.id.genie_box)
+        box.layoutParams = (box.layoutParams as FrameLayout.LayoutParams).apply {
+            height = if (open) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
+            topMargin = if (open) topInset + dp(16) else 0
+        }
+        val scroll = view.findViewById<PopupScrollView>(R.id.answer_scroll)
+        scroll.expanded = open
+        scroll.layoutParams = (scroll.layoutParams as LinearLayout.LayoutParams).apply {
+            height = if (open) 0 else ViewGroup.LayoutParams.WRAP_CONTENT
+            weight = if (open) 1f else 0f
+        }
+        scroll.isVerticalFadingEdgeEnabled = open
+        scroll.isVerticalScrollBarEnabled = open
+        view.findViewById<View>(R.id.history_log).visibility = if (open) View.VISIBLE else View.GONE
+        view.findViewById<View>(R.id.link_card).visibility =
+            if (!open && linkCard?.url != null) View.VISIBLE else View.GONE
+        styleQuestion(view.findViewById(R.id.current_question), bubble = open, first = !open)
+        val answer = view.findViewById<TextView>(R.id.chatgpt_answer)
+        answer.layoutParams = (answer.layoutParams as LinearLayout.LayoutParams).apply {
+            topMargin = dp(if (open) 18 else 12)
+        }
+        focusAnswer(view, answer)
+        // The chat log opens on the latest response, then you keep scrolling up through it.
+        scroll.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
+            override fun onLayoutChange(v: View, l: Int, t: Int, r: Int, b: Int, ol: Int, ot: Int, or: Int, ob: Int) {
+                scroll.removeOnLayoutChangeListener(this)
+                scroll.scrollTo(0, if (open) view.findViewById<View>(R.id.conversation).height else 0)
+            }
+        })
+    }
+
+    private fun showLog(view: View) {
+        val container = view.findViewById<LinearLayout>(R.id.history_log)
+        container.removeAllViews()
+        for ((index, turn) in log.withIndex()) {
+            container.addView(TextView(context).apply {
+                typeface = context.resources.getFont(R.font.inter)
+                text = turn.question
+                styleQuestion(this, bubble = true, first = index == 0)
+            })
+            container.addView(TextView(context).apply {
+                layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(18) }
+                typeface = context.resources.getFont(R.font.inter)
+                answerRenderer.setAnswer(this, turn.answer)
+                styleAnswer(this, focused = false)
+            })
+        }
+    }
+
+    // A question is a muted line above the latest response, or a bubble in the chat log.
+    private fun styleQuestion(question: TextView, bubble: Boolean, first: Boolean) {
+        question.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+            gravity = if (bubble) Gravity.END else Gravity.START
+            topMargin = if (first) 0 else dp(18)
+        }
+        question.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
+        question.lineHeight = dp(20)
+        question.setTextColor(context.getColor(if (bubble) R.color.genie_text else R.color.genie_muted))
+        question.background = if (bubble) context.getDrawable(R.drawable.genie_bubble) else null
+        if (bubble) question.setPadding(dp(14), dp(9), dp(14), dp(9)) else question.setPadding(0, 0, 0, 0)
+        question.maxWidth = if (bubble) (context.resources.displayMetrics.widthPixels * 0.7f).toInt() else Int.MAX_VALUE
+    }
+
+    // The answer you're reading is large and white; the rest of the log is smaller and muted.
+    private fun styleAnswer(answer: TextView, focused: Boolean) {
+        answer.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (focused) 22f else 17f)
+        answer.lineHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, if (focused) 29f else 24f,
+            context.resources.displayMetrics).toInt()
+        answer.letterSpacing = if (focused) -0.01f else 0f
+        answer.setTextColor(context.getColor(if (focused) R.color.genie_text else R.color.genie_muted))
+    }
+
+    private fun answers(view: View): List<TextView> {
+        val container = view.findViewById<ViewGroup>(R.id.history_log)
+        return (0 until container.childCount).map { container.getChildAt(it) }.filterIndexed { index, _ -> index % 2 == 1 }
+            .map { it as TextView } + view.findViewById<TextView>(R.id.chatgpt_answer)
+    }
+
+    private fun focusAnswer(view: View, answer: TextView) {
+        focusedAnswer = answer
+        answers(view).forEach { styleAnswer(it, focused = it === answer || !expanded) }
+    }
+
+    private fun focusNearestAnswer(view: View) {
+        val scroll = view.findViewById<PopupScrollView>(R.id.answer_scroll)
+        val content = view.findViewById<ViewGroup>(R.id.conversation)
+        val all = answers(view)
+        val center = scroll.scrollY + scroll.height / 2
+        fun bounds(answer: TextView) = android.graphics.Rect().also {
+            answer.getDrawingRect(it)
+            content.offsetDescendantRectToMyCoords(answer, it)
+        }
+        val nearest = if (!scroll.canScrollVertically(1)) all.last()
+            else all.minBy { kotlin.math.abs(bounds(it).centerY() - center) }
+        if (nearest === focusedAnswer) return
+        // Keep the newly focused answer where it is on screen while the text sizes change.
+        val anchor = bounds(nearest).top - scroll.scrollY
+        focusAnswer(view, nearest)
+        content.post { scroll.scrollTo(0, bounds(nearest).top - anchor) }
+    }
+
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
     private fun sendTranscript(view: View, question: String) {
@@ -274,9 +419,7 @@ class GenieOverlay(private val context: Context) {
 
     private fun answerTranscript(view: View, question: String) {
         answerRequest?.cancel()
-        val sources = AnswerSources(view.findViewById(R.id.answer_sources), view.findViewById(R.id.source_links)) { url ->
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }
+        linkCard?.clear()
         val account = chatGpt.store.active()
         if (account?.connected != true) {
             setMode(view, BoxMode.Thinking)
@@ -286,8 +429,13 @@ class GenieOverlay(private val context: Context) {
         }
         if (conversationAccount != account.clientId) {
             history.clear()
+            log.clear()
+            finishedTurn = null
             conversationAccount = account.clientId
         }
+        finishedTurn?.let { log += it }
+        finishedTurn = null
+        showLog(view)
         setMode(view, BoxMode.Thinking)
         setStatus(view, R.string.chatgpt_thinking)
         view.findViewById<View>(R.id.chatgpt_plan).visibility = View.VISIBLE
@@ -303,7 +451,10 @@ class GenieOverlay(private val context: Context) {
                 speechOutput?.updateAnswer(text)
             }
         }, onCitations = { citations ->
-            if (popup === view) sources.setSources(citations)
+            if (popup === view) {
+                linkCard?.setSources(citations)
+                if (expanded) view.findViewById<View>(R.id.link_card).visibility = View.GONE
+            }
         }, onSearching = {
             if (popup === view && mode == BoxMode.Thinking) setStatus(view, R.string.chatgpt_searching)
         }, onDone = { error ->
@@ -314,6 +465,7 @@ class GenieOverlay(private val context: Context) {
                     null -> {
                         history.add(ChatTurn("user", question))
                         history.add(ChatTurn("assistant", answer))
+                        finishedTurn = LoggedTurn(view.findViewById<TextView>(R.id.current_question).text, answer)
                         speechOutput?.updateAnswer(answer, true)
                         action(view, R.string.speech_retry) { startListening(view) }
                     }

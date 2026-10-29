@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android">
-    <solid android:color="@color/genie_box" />
+    <gradient
+        android:angle="270"
+        android:startColor="@color/genie_glass_top"
+        android:endColor="@color/genie_glass_bottom" />
     <corners android:radius="28dp" />
     <stroke android:width="1dp" android:color="@color/genie_box_stroke" />
 </shape>

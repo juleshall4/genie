@@ -33,29 +33,21 @@ class WebSearchCheck : Instrumentation() {
                 val linked = citations.isNotEmpty() && sourcePanelWorks(citations)
                 val passed = error == null && searched && linked && speechClean && answer.isNotBlank()
                 finish(if (passed) Activity.RESULT_OK else Activity.RESULT_CANCELED, Bundle().apply {
-                    putString("stream", if (passed) "Passed: live web search executed, answer streamed, ${citations.size} sources behind a working Sources toggle; streamed speech excludes links.\n"
+                    putString("stream", if (passed) "Passed: live web search executed, answer streamed, ${citations.size} sources behind a working webpage card; streamed speech excludes links.\n"
                         else "Failed: ${error?.let { targetContext.getString(it) } ?: "Search observed=$searched; citations=${citations.size}; answer=${answer.take(240)}"}\n")
                 })
             })
     }
     private fun sourcePanelWorks(citations: List<WebCitation>): Boolean {
-        val button = android.widget.Button(targetContext)
-        val links = android.widget.TextView(targetContext)
+        val overlay = android.view.LayoutInflater.from(targetContext).inflate(dev.genie.android.R.layout.overlay_genie, null)
+        val card = overlay.findViewById<android.view.View>(dev.genie.android.R.id.link_card)
         var opened: String? = null
-        val panel = dev.genie.android.AnswerSources(button, links) { opened = it }
+        val panel = dev.genie.android.LinkCard(card) { opened = it }
         panel.setSources(citations)
-        if (button.visibility != android.view.View.VISIBLE || links.visibility != android.view.View.GONE) return false
-        button.performClick()
-        if (links.visibility != android.view.View.VISIBLE) return false
-        val content = links.text as android.text.Spanned
-        val spans = content.getSpans(0, content.length, android.text.style.ClickableSpan::class.java)
-        if (spans.isEmpty()) return false
-        spans.first().onClick(links)
+        if (card.visibility != android.view.View.VISIBLE) return false
+        card.performClick()
         if (citations.none { it.url == opened }) return false
-        button.performClick()
-        if (links.visibility != android.view.View.GONE) return false
         panel.setSources(emptyList())
-        return button.visibility == android.view.View.GONE && links.visibility == android.view.View.GONE
+        return card.visibility == android.view.View.GONE
     }
-
 }
