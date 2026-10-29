@@ -1,6 +1,8 @@
 package dev.genie.android
 
-/** Releases complete words from cumulative answer updates without waiting for sentences. */
+import java.util.Locale
+
+/** Releases complete sentences from cumulative answer updates, then flushes the final remainder. */
 class StreamingTextBuffer {
     private var consumed = 0
 
@@ -34,11 +36,37 @@ class StreamingTextBuffer {
         val text = SpokenText.chunks(safe, Int.MAX_VALUE).joinToString(" ")
         if (text.length < consumed) return emptyList()
         val remaining = text.substring(consumed)
-        val boundary = if (finished || safe.lastOrNull()?.isWhitespace() == true) remaining.length
-            else remaining.indexOfLast { it.isWhitespace() }.let { if (it < 0) 0 else it + 1 }
+        val boundary = if (finished) remaining.length
+            else sentenceBoundary(remaining, safe.lastOrNull()?.isWhitespace() == true)
         if (boundary == 0) return emptyList()
         consumed += boundary
-        val chunks = SpokenText.splitPlain(remaining.take(boundary), 300)
+        val chunks = SpokenText.splitPlain(remaining.take(boundary), 1000)
         return chunks
+    }
+
+    private fun sentenceBoundary(text: String, trailingWhitespace: Boolean): Int {
+        var boundary = 0
+        for (ending in sentenceEnd.findAll(text)) {
+            val end = ending.range.last + 1
+            // A final dot can still become part of a streamed decimal or abbreviation.
+            if (end == text.length && !trailingWhitespace) continue
+            if (ending.groupValues[1] == "." && isAbbreviation(text, ending.range.first)) continue
+            boundary = end
+        }
+        return boundary
+    }
+
+    private fun isAbbreviation(text: String, period: Int): Boolean {
+        val prefix = text.take(period)
+        val word = prefix.takeLastWhile { it.isLetter() || it == '.' }
+        return word.lowercase(Locale.ROOT) in abbreviations || word.length == 1 ||
+            initials.matches(word) || prefix.trim().matches(numberedItem)
+    }
+
+    companion object {
+        private val sentenceEnd = Regex("""([.!?。！？]+)["'’”)\]]*(?=\s|$)""")
+        private val initials = Regex("""(?:\p{L}\.)+\p{L}""")
+        private val numberedItem = Regex("""\d+""")
+        private val abbreviations = setOf("mr", "mrs", "ms", "dr", "prof", "sr", "jr", "st", "vs", "etc")
     }
 }
