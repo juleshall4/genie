@@ -3,7 +3,7 @@ package dev.genie.android
 object SpokenText {
     fun chunks(markdown: String, limit: Int): List<String> {
         require(limit > 1)
-        var text = markdown
+        var text = AnswerText.withoutReferences(markdown)
             .replace(Regex("\uE200[^\uE201]*\uE201"), "")
             .replace(Regex("```[\\s\\S]*?```"), " ")
             .replace(Regex("!?\\[([^]]*)]\\([^)]*\\)"), "$1")
@@ -11,6 +11,12 @@ object SpokenText {
             .replace(Regex("(?m)^\\s*[-*+]\\s+"), "")
             .replace(Regex("[*_`]+"), "")
             .trim()
+        return splitPlain(text, limit)
+    }
+
+    fun splitPlain(plainText: String, limit: Int): List<String> {
+        require(limit > 1)
+        var text = plainText.trim()
         val chunks = mutableListOf<String>()
         while (text.length > limit) {
             var end = text.lastIndexOf(' ', limit)

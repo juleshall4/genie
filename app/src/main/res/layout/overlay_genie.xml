@@ -73,6 +73,26 @@
             android:textSize="18sp"
             android:visibility="gone" />
         <Button
+            android:id="@+id/answer_sources"
+            style="?android:attr/borderlessButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:minWidth="0dp"
+            android:text="@string/answer_sources"
+            android:textAllCaps="false"
+            android:textColor="@color/accent"
+            android:textSize="13sp"
+            android:visibility="gone" />
+        <TextView
+            android:id="@+id/source_links"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/popup_muted"
+            android:textColorLink="@color/accent"
+            android:textSize="14sp"
+            android:visibility="gone" />
+        <Button
             android:id="@+id/speech_action"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

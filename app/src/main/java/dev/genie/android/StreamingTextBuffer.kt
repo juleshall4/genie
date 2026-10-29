@@ -11,9 +11,25 @@ class StreamingTextBuffer {
             if (citation >= 0 && safe.indexOf('\uE201', citation) < 0) safe = safe.take(citation)
             val fences = Regex("```").findAll(safe).toList()
             if (fences.size % 2 == 1) safe = safe.take(fences.last().range.first)
-            // A link label can change when its URL arrives; wait until the link is complete.
+            // Hold a parenthetical citation until the whole reference is known.
+            val reference = Regex("\\(\\s*\\[").findAll(safe).lastOrNull()?.range?.first
+            if (reference != null) {
+                var depth = 0
+                var closed = false
+                for (index in reference until safe.length) {
+                    if (safe[index] == '(') depth++
+                    if (safe[index] == ')' && --depth == 0) { closed = true; break }
+                }
+                if (!closed) safe = safe.take(reference)
+            }
             val openLink = safe.lastIndexOf('[')
-            if (openLink >= 0 && safe.indexOf(')', openLink) < 0) safe = safe.take(openLink)
+            if (openLink >= 0) {
+                val labelEnd = safe.indexOf(']', openLink)
+                if (labelEnd < 0 || labelEnd == safe.lastIndex ||
+                    (safe[labelEnd + 1] == '(' && safe.indexOf(')', labelEnd + 1) < 0)) {
+                    safe = safe.take(openLink)
+                }
+            }
         }
         val text = SpokenText.chunks(safe, Int.MAX_VALUE).joinToString(" ")
         if (text.length < consumed) return emptyList()
@@ -22,7 +38,7 @@ class StreamingTextBuffer {
             else remaining.indexOfLast { it.isWhitespace() }.let { if (it < 0) 0 else it + 1 }
         if (boundary == 0) return emptyList()
         consumed += boundary
-        val chunks = SpokenText.chunks(remaining.take(boundary), 300)
+        val chunks = SpokenText.splitPlain(remaining.take(boundary), 300)
         return chunks
     }
 }

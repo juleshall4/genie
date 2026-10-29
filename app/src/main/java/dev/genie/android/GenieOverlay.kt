@@ -98,6 +98,8 @@ class GenieOverlay(private val context: Context) {
 
     private fun startListening(view: View) {
         speechOutput?.stop()
+        view.findViewById<View>(R.id.answer_sources).visibility = View.GONE
+        view.findViewById<View>(R.id.source_links).visibility = View.GONE
         view.findViewById<View>(R.id.read_aloud_status).visibility = View.GONE
         speechInput?.close()
         answerRequest?.cancel()
@@ -156,6 +158,9 @@ class GenieOverlay(private val context: Context) {
 
     private fun sendTranscript(view: View, question: String) {
         answerRequest?.cancel()
+        val sources = AnswerSources(view.findViewById(R.id.answer_sources), view.findViewById(R.id.source_links)) { url ->
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
         val account = chatGpt.store.active()
         if (account?.connected != true) {
             view.findViewById<TextView>(R.id.speech_status).setText(R.string.chatgpt_connect_needed)
@@ -175,17 +180,11 @@ class GenieOverlay(private val context: Context) {
         answerRequest = chatGpt.answer(history.toList() + ChatTurn("user", question), onText = { text ->
             if (popup === view) {
                 answer = text
-                view.findViewById<TextView>(R.id.chatgpt_answer).text = text
+                view.findViewById<TextView>(R.id.chatgpt_answer).text = AnswerText.withoutReferences(text)
                 speechOutput?.updateAnswer(text)
             }
         }, onCitations = { citations ->
-            if (popup === view) view.findViewById<TextView>(R.id.chatgpt_answer).apply {
-                text = CitedAnswer.render(answer, citations) { url ->
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                }
-                movementMethod = android.text.method.LinkMovementMethod.getInstance()
-                setLinkTextColor(context.getColor(R.color.accent))
-            }
+            if (popup === view) sources.setSources(citations)
         }, onSearching = {
             if (popup === view) view.findViewById<TextView>(R.id.speech_status).setText(R.string.chatgpt_searching)
         }, onDone = { error ->
