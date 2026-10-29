@@ -4,6 +4,9 @@
     <color name="ink">#203E35</color>
     <color name="muted">#5B6860</color>
     <color name="accent">#D4EFAD</color>
-    <color name="popup">#183A30</color>
-    <color name="popup_muted">#C4D4C9</color>
+    <color name="genie_box">#000000</color>
+    <color name="genie_box_stroke">#1AFFFFFF</color>
+    <color name="genie_surface">#1C1C1E</color>
+    <color name="genie_text">#FFFFFF</color>
+    <color name="genie_muted">#8E8E93</color>
 </resources>

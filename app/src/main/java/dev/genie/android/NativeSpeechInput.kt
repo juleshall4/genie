@@ -12,7 +12,8 @@ import android.speech.SpeechRecognizer
 class NativeSpeechInput(
     private val context: Context,
     private val onUpdate: (status: Int, transcript: String?, finished: Boolean) -> Unit,
-    private val onFinalTranscript: (String) -> Unit = {}
+    private val onFinalTranscript: (String) -> Unit = {},
+    private val onLevel: (rmsdB: Float) -> Unit = {}
 ) {
     private var recognizer: SpeechRecognizer? = null
     private var modelDownloadAttempted = false
@@ -87,7 +88,9 @@ class NativeSpeechInput(
                 update(status, finished = true)
             }
 
-            override fun onRmsChanged(rmsdB: Float) = Unit
+            override fun onRmsChanged(rmsdB: Float) {
+                if (recognizer === session) onLevel(rmsdB)
+            }
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
@@ -116,5 +119,9 @@ class NativeSpeechInput(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_QUALITY)
+            putExtra(RecognizerIntent.EXTRA_HIDE_PARTIAL_TRAILING_PUNCTUATION, true)
+        }
     }
 }
