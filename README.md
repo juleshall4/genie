@@ -14,6 +14,10 @@ Without an explicit saved model, Genie prefers **GPT-6 Luna** when available in 
 
 Genie enables OpenAI web search with automatic tool choice, so the model can look up information when needed. Search responses offer a collapsed Sources button with clickable links, and a brief status indicates when a search runs. Citation markers are removed from spoken output. Search availability remains subject to the selected model and account policies. The current app still sends text only and does not yet expose photo input. It does not connect directly to Google Search. [Connection limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
 
+### Answer formatting
+
+Popup answers use Markwon to render Markdown as Android text spans during streaming, including **bold**, *italic*, headings, lists, and inline code. Reference cleanup runs before rendering; sources remain in the separate Sources panel. Speech uses its own plain-text cleanup and does not receive Markdown spans.
+
 ### Web search
 
 The shared Responses request builder enables `web_search` with `tool_choice: "auto"` on both WebSocket and HTTP requests. Genie does not force a search for every question. The popup shows a searching status and keeps source links behind a compact **Sources** button below the answer. Tapping it expands clickable sources; tapping **Hide sources** collapses them. A new question clears the panel. Both structured URL annotations and Markdown source links are supported. Only HTTP(S) citation targets are accepted. URL-like link labels, bare web addresses, citation markers, numeric references, and trailing Sources/References sections are removed from speech. The streaming cleaner holds incomplete links and parenthetical references so fragments cannot leak into synthesis. Meaningful linked words remain part of the answer. Source lists are never sent to Chirp.

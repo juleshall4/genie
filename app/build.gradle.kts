@@ -6,6 +6,7 @@ plugins {
 }
 
 dependencies {
+    implementation("io.noties.markwon:core:4.6.2")
     implementation("io.grpc:grpc-okhttp:1.85.1")
     implementation("io.grpc:grpc-protobuf-lite:1.85.1")
     implementation("io.grpc:grpc-stub:1.85.1")

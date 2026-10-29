@@ -21,6 +21,7 @@ import dev.genie.android.chatgpt.ChatGptRequest
 import dev.genie.android.chatgpt.ChatTurn
 
 class GenieOverlay(private val context: Context) {
+    private val answerRenderer = AnswerRenderer(context)
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private var popup: View? = null
     private var speechInput: NativeSpeechInput? = null
@@ -180,7 +181,7 @@ class GenieOverlay(private val context: Context) {
         answerRequest = chatGpt.answer(history.toList() + ChatTurn("user", question), onText = { text ->
             if (popup === view) {
                 answer = text
-                view.findViewById<TextView>(R.id.chatgpt_answer).text = AnswerText.withoutReferences(text)
+                answerRenderer.setAnswer(view.findViewById(R.id.chatgpt_answer), text)
                 speechOutput?.updateAnswer(text)
             }
         }, onCitations = { citations ->
