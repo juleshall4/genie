@@ -15,3 +15,20 @@
 
 - After implementing every feature, run `./gradlew installDebug` to build and install it on the connected Android device or emulator.
 - Resolve build or installation failures before marking the feature complete. If installation is blocked by a missing device or emulator, report the blocker explicitly.
+
+## Agent skills
+
+### Issue tracker
+
+Use GitHub Issues in `juleshall4/genie` through the `gh` CLI.
+See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the five default triage labels.
+See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Use a single-context layout: root `CONTEXT.md` and `docs/adr/`.
+See `docs/agents/domain.md`.
