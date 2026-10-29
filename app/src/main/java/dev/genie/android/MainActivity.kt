@@ -24,7 +24,7 @@ class MainActivity : Activity() {
     private var modelRequest: ChatGptRequest? = null
     private var modelCatalog: ChatGptModels? = null
     private var modelAccountId: String? = null
-    private var voicePreview: LocalSpeechOutput? = null
+    private var voicePreview: ChirpSpeechOutput? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,15 +49,29 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.chatgpt_model).setOnClickListener { chooseModel() }
         findViewById<Button>(R.id.chatgpt_reasoning).setOnClickListener { chooseReasoning() }
         findViewById<Button>(R.id.chatgpt_refresh_models).setOnClickListener { loadModels() }
-        findViewById<Button>(R.id.read_aloud_settings).setOnClickListener {
-            val setup = packageManager.getLaunchIntentForPackage(LocalSpeechOutput.ENGINE_PACKAGE)
-            if (setup != null) startActivity(setup)
-            else startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/AljGe/TensorSpeak/releases")))
+        findViewById<Button>(R.id.read_aloud_settings).setOnClickListener { configureSpeech() }
+        findViewById<Button>(R.id.read_aloud_voice).setOnClickListener {
+            val settings = ChirpSettings(this)
+            AlertDialog.Builder(this).setTitle(R.string.read_aloud_voice)
+                .setSingleChoiceItems(ChirpSettings.VOICES.map { it.substringAfterLast('-') }.toTypedArray(),
+                    ChirpSettings.VOICES.indexOf(settings.voice)) { dialog, index ->
+                    settings.voice = ChirpSettings.VOICES[index]
+                    renderSpeech()
+                    dialog.dismiss()
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        }
+        findViewById<android.widget.Switch>(R.id.read_aloud_enabled).apply {
+            isChecked = ChirpSettings(this@MainActivity).enabled
+            setOnCheckedChangeListener { _, enabled ->
+                ChirpSettings(this@MainActivity).enabled = enabled
+                if (!enabled) voicePreview?.stop()
+            }
         }
         findViewById<Button>(R.id.read_aloud_test).setOnClickListener {
             voicePreview?.close()
-            voicePreview = LocalSpeechOutput(this) { status ->
+            voicePreview = ChirpSpeechOutput(this) { status ->
                 findViewById<TextView>(R.id.read_aloud_status).setText(status)
+                renderSpeech()
             }.also { it.speak(getString(R.string.read_aloud_sample)) }
         }
     }
@@ -87,6 +101,55 @@ class MainActivity : Activity() {
             }
         }
         renderChatGpt()
+        renderSpeech()
+    }
+
+    private fun renderSpeech() {
+        val settings = ChirpSettings(this)
+        val usage = settings.usage()
+        findViewById<TextView>(R.id.read_aloud_usage).text = getString(
+            R.string.read_aloud_usage_value, usage.month, usage.characters, ChirpSettings.MONTHLY_LIMIT)
+        findViewById<android.widget.ProgressBar>(R.id.read_aloud_progress).apply {
+            max = ChirpSettings.MONTHLY_LIMIT.toInt()
+            progress = usage.characters.coerceAtMost(ChirpSettings.MONTHLY_LIMIT).toInt()
+        }
+        findViewById<Button>(R.id.read_aloud_voice).text = getString(
+            R.string.read_aloud_voice_value, settings.voice.substringAfterLast('-'))
+    }
+
+    private fun configureSpeech() {
+        val input = android.widget.EditText(this).apply {
+            hint = getString(R.string.read_aloud_key_hint)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            importantForAutofill = android.view.View.IMPORTANT_FOR_AUTOFILL_NO
+            isSingleLine = true
+        }
+        val dialog = AlertDialog.Builder(this).setTitle(R.string.read_aloud_settings)
+            .setMessage(R.string.read_aloud_key_help).setView(input)
+            .setPositiveButton(R.string.read_aloud_save, null)
+            .setNeutralButton(R.string.read_aloud_remove_key) { _, _ ->
+                voicePreview?.stop()
+                ChirpSettings(this).apiKey = ""
+                findViewById<TextView>(R.id.read_aloud_status).setText(R.string.read_aloud_setup_needed)
+            }.setNegativeButton(android.R.string.cancel, null).create()
+        dialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val key = input.text.toString().trim()
+                if (key.isBlank() || key.any { it.isWhitespace() }) {
+                    input.error = getString(R.string.read_aloud_key_hint)
+                } else {
+                    try {
+                        ChirpSettings(this).apiKey = key
+                        findViewById<TextView>(R.id.read_aloud_status).setText(R.string.read_aloud_key_saved)
+                        dialog.dismiss()
+                    } catch (_: Exception) {
+                        input.error = getString(R.string.read_aloud_key_save_failed)
+                    }
+                }
+            }
+        }
+        dialog.show()
     }
 
     private fun renderChatGpt() {

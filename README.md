@@ -2,17 +2,38 @@
 
 An Android assistant with a Space-triggered overlay, speech recognition, and answers through your connected ChatGPT account.
 
-## Offline spoken answers
+## Spoken answers with Chirp 3 HD
 
-Genie reads completed answers with **owensong/Inflect-Nano-v2**, using its official FP32 ONNX export through the separate [TensorSpeak](https://github.com/AljGe/TensorSpeak) Android speech engine. Genie explicitly selects the offline `nano` voice; it does not select cloud voices or another system voice.
+Genie reads completed answers with Google Cloud Chirp 3 HD. Settings include four British voices, a preview, an on/off switch, and a monthly character meter. Closing the popup or selecting **Listen again** cancels pending speech and stops playback. TensorSpeak and Inflect Nano are no longer used.
 
-1. Install the appropriate TensorSpeak APK from [its releases](https://github.com/AljGe/TensorSpeak/releases). Use `arm64-v8a` for the Titan 2 Elite.
-2. In TensorSpeak's **Voices** tab, install the **Nano** model pack (about 15 MB compressed).
-3. Open Genie and select **Try offline voice** to check playback.
+### Set up your project and API key
 
-Genie selects the engine directly, so changing Android's default speech engine is unnecessary. After the one-time model download, speech generation stays offline. ChatGPT requests still require a connection. Closing the popup or selecting **Listen again** stops spoken output.
+1. Create or select your own [Google Cloud project](https://console.cloud.google.com/).
+2. Enable billing and the [Cloud Text-to-Speech API](https://console.cloud.google.com/apis/library/texttospeech.googleapis.com).
+3. Create an API key under **APIs & Services → Credentials**, and restrict its API access to **Cloud Text-to-Speech API**.
+4. Copy `.env.example` to `.env` and set `GOOGLE_CLOUD_TTS_API_KEY`. This file is ignored by version control. Do not put a service-account JSON file in this field.
+5. Run `./gradlew installDebug`, then open Genie and select **Try Chirp voice**. The install task copies the key over adb into private debug-app storage. Genie encrypts it with Android Keystore and deletes the temporary plaintext copy on opening. The key is never added to the APK. Alternatively, enter it directly with **Set up Google Cloud API key**.
 
-The companion engine is separately installed and licensed (GPL-3.0-or-later); Inflect weights are Apache-2.0. Genie communicates through Android's standard text-to-speech interface and does not bundle TensorSpeak source or binaries.
+To provision a changed key without rebuilding, run `python3 scripts/provision_chirp.py /path/to/adb`, then reopen Genie. Key changes retain the existing usage count. Do not distribute your personal key in a public app; this setup is for your own device.
+
+### Usage meter and limit
+
+The meter counts characters submitted from this installation, including voice previews, and stops new speech requests at **900,000 characters per UTC calendar month**. Text answers continue after the limit. Reservations are saved before network submission and are not refunded after errors or cancellation because Google may have processed those requests. The counter uses Unicode code points, including spaces and punctuation, after removing Markdown. It resets automatically for a new UTC month.
+
+This is a conservative on-device estimate, not a Google billing meter or a guarantee of free usage. Other apps and projects, clearing app data or reinstalling, and Google's billing boundaries can affect actual totals. Check the Cloud console for authoritative usage. Google's published Chirp 3 HD allowance is 1 million characters per month, followed by $30 per million; a billing-enabled project is required. [Pricing](https://cloud.google.com/text-to-speech/pricing).
+
+This version sends completed answers through Google's REST synthesis endpoint, in bounded chunks for longer answers. It plays each returned MP3 in order. It does not yet use Google's bidirectional streaming API or start speech while ChatGPT is generating text. [Synthesis API](https://docs.cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize).
+
+### Verification
+
+On October 29, 2026, the emulator passed 26 unit tests and instrumentation checks for month rollover, persistent cutoff enforcement, concurrent usage reservations, encrypted credential import, and key changes preserving usage. A live check using the configured Cloud Text-to-Speech key completed synthesis and MP3 playback with the default British Aoede voice, then stopped a second answer when playback began. This verifies the emulator path, not physical Titan performance or subjective voice quality.
+
+To repeat the live check (two short billable speech requests, counted in the meter):
+
+```sh
+./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.ChirpPlaybackCheck
+adb shell am instrument -w -e live_chirp true dev.genie.android.test/dev.genie.android.ChirpPlaybackCheck
+```
 
 ## Response latency
 
@@ -37,13 +58,6 @@ With Android SDK 36, a compatible JDK, and an emulator or device connected throu
 
 ```sh
 ./gradlew testDebugUnitTest installDebug
-```
-
-To check actual Nano playback and cancellation after installing the model:
-
-```sh
-./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.LocalSpeechCheck
-adb shell am instrument -w dev.genie.android.test/dev.genie.android.LocalSpeechCheck
 ```
 
 ### Low reasoning and Fast mode

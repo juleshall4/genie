@@ -106,6 +106,37 @@
             android:text="@string/read_aloud_help"
             android:textColor="@color/muted"
             android:textSize="14sp" />
+        <Switch
+            android:id="@+id/read_aloud_enabled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/read_aloud_enabled" />
+        <TextView
+            android:id="@+id/read_aloud_usage"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:textColor="@color/ink"
+            android:textSize="16sp" />
+        <ProgressBar
+            android:id="@+id/read_aloud_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/read_aloud_usage_help"
+            android:textColor="@color/muted"
+            android:textSize="14sp" />
+        <Button
+            android:id="@+id/read_aloud_voice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:text="@string/read_aloud_voice"
+            android:textAllCaps="false" />
         <Button
             android:id="@+id/read_aloud_settings"
             android:layout_width="match_parent"

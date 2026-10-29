@@ -24,7 +24,7 @@ class GenieOverlay(private val context: Context) {
     private val windowManager = context.getSystemService(WindowManager::class.java)
     private var popup: View? = null
     private var speechInput: NativeSpeechInput? = null
-    private var speechOutput: LocalSpeechOutput? = null
+    private var speechOutput: ChirpSpeechOutput? = null
     private var generation = 0
     private val chatGpt = ChatGptClient.get(context)
     private var answerRequest: ChatGptRequest? = null
@@ -77,7 +77,7 @@ class GenieOverlay(private val context: Context) {
         }
         windowManager.addView(view, params)
         popup = view
-        speechOutput = LocalSpeechOutput(context) { status ->
+        speechOutput = ChirpSpeechOutput(context) { status ->
             if (popup === view) view.findViewById<TextView>(R.id.read_aloud_status).apply {
                 setText(status)
                 visibility = View.VISIBLE
