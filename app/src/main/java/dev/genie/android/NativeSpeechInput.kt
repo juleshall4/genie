@@ -4,29 +4,51 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.ModelDownloadListener
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 
-class NativeSpeechInput(
+class NativeSpeechInput internal constructor(
     private val context: Context,
     private val onUpdate: (status: Int, transcript: String?, finished: Boolean) -> Unit,
     private val onFinalTranscript: (String) -> Unit = {},
-    private val onLevel: (rmsdB: Float) -> Unit = {}
+    private val onLevel: (rmsdB: Float) -> Unit = {},
+    private val createEngine: () -> SpeechEngine = { AndroidSpeechEngine(context) },
+    private val startupTimeoutMillis: Long = 5000
 ) {
-    private var recognizer: SpeechRecognizer? = null
+    private var recognizer: SpeechEngine? = null
     private var modelDownloadAttempted = false
+    private val main = Handler(Looper.getMainLooper())
+    private var startupTimeout: Runnable? = null
+    private var pendingRestart: Runnable? = null
+    private var recoveryAttempted = false
 
     fun start() {
+        recoveryAttempted = false
+        startSession()
+    }
+
+    private fun startSession() {
         close()
         if (!SpeechRecognizer.isRecognitionAvailable(context)) {
             onUpdate(R.string.speech_unavailable, null, true)
             return
         }
 
-        val session = SpeechRecognizer.createSpeechRecognizer(context)
+        val session = createEngine()
+        var speechStarted = false
         recognizer = session
+        fun recover(): Boolean {
+            if (recoveryAttempted) return false
+            recoveryAttempted = true
+            close()
+            onUpdate(R.string.speech_starting, null, false)
+            pendingRestart = Runnable { startSession() }.also { main.postDelayed(it, 500) }
+            return true
+        }
         session.setRecognitionListener(object : RecognitionListener {
             private fun update(status: Int, transcript: String? = null, finished: Boolean = false) {
                 if (recognizer !== session) return
@@ -34,15 +56,33 @@ class NativeSpeechInput(
                 if (finished) close()
             }
 
-            override fun onReadyForSpeech(params: Bundle?) = update(R.string.speech_listening)
+            override fun onReadyForSpeech(params: Bundle?) {
+                if (recognizer !== session) return
+                clearStartupTimeout()
+                update(R.string.speech_listening)
+            }
 
-            override fun onBeginningOfSpeech() = update(R.string.speech_listening)
+            override fun onBeginningOfSpeech() {
+                if (recognizer !== session) return
+                speechStarted = true
+                clearStartupTimeout()
+                update(R.string.speech_listening)
+            }
 
-            override fun onEndOfSpeech() = update(R.string.speech_processing)
+            override fun onEndOfSpeech() {
+                if (recognizer !== session) return
+                clearStartupTimeout()
+                update(R.string.speech_processing)
+            }
 
             override fun onPartialResults(partialResults: Bundle?) {
+                if (recognizer !== session) return
                 val text = transcript(partialResults)
-                if (text != null) update(R.string.speech_listening, text)
+                if (text != null) {
+                    speechStarted = true
+                    clearStartupTimeout()
+                    update(R.string.speech_listening, text)
+                }
             }
 
             override fun onResults(results: Bundle?) {
@@ -57,12 +97,16 @@ class NativeSpeechInput(
             }
 
             override fun onError(error: Int) {
+                if (recognizer !== session) return
+                val disconnectedBeforeSpeech = error == SpeechRecognizer.ERROR_SERVER_DISCONNECTED && !speechStarted
+                if ((error == SpeechRecognizer.ERROR_RECOGNIZER_BUSY || disconnectedBeforeSpeech) && recover()) return
                 if (error == SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE &&
                     Build.VERSION.SDK_INT >= 34 && !modelDownloadAttempted
                 ) {
                     modelDownloadAttempted = true
+                    clearStartupTimeout()
                     update(R.string.speech_downloading_model)
-                    session.triggerModelDownload(recognitionIntent(), context.mainExecutor, object : ModelDownloadListener {
+                    session.downloadModel(recognitionIntent(), object : ModelDownloadListener {
                         override fun onSuccess() {
                             if (recognizer === session) start()
                         }
@@ -96,6 +140,12 @@ class NativeSpeechInput(
         })
 
         onUpdate(R.string.speech_starting, null, false)
+        startupTimeout = Runnable {
+            if (recognizer === session && !recover()) {
+                close()
+                onUpdate(R.string.speech_start_timeout, null, true)
+            }
+        }.also { main.postDelayed(it, startupTimeoutMillis) }
         try {
             session.startListening(recognitionIntent())
         } catch (_: SecurityException) {
@@ -105,10 +155,17 @@ class NativeSpeechInput(
     }
 
     fun close() {
+        clearStartupTimeout()
+        pendingRestart?.let { main.removeCallbacks(it) }
+        pendingRestart = null
         val previous = recognizer
         recognizer = null
-        previous?.cancel()
-        previous?.destroy()
+        previous?.close()
+    }
+
+    private fun clearStartupTimeout() {
+        startupTimeout?.let { main.removeCallbacks(it) }
+        startupTimeout = null
     }
 
     private fun transcript(results: Bundle?): String? =

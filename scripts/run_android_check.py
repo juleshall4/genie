@@ -29,7 +29,7 @@ try:
     result = subprocess.run([adb, "-s", serial, "shell", "am", "instrument", "-w", *sys.argv[2:], runner],
                             capture_output=True, text=True)
     print(result.stdout, end="")
-    if (result.returncode or "Failed:" in result.stdout or "Skipped:" in result.stdout
+    if (result.returncode or re.search(r"(?im)^\s*(?:fail(?:ed)?|skip(?:ped)?):", result.stdout)
             or "INSTRUMENTATION_FAILED" in result.stdout
             or re.search(r"INSTRUMENTATION_CODE:\s*(?!-1\b)-?\d+", result.stdout)):
         sys.exit("Android check failed.")

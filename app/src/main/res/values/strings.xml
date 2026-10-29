@@ -58,6 +58,7 @@
     <string name="shortcut_service_description">Use Space to open or close Genie above any app. This emulator shortcut intercepts the Space key but does not read screen content. Turn it off here to restore normal Space typing.</string>
     <string name="enable_microphone">Enable microphone</string>
     <string name="speech_starting">Starting microphone…</string>
+    <string name="speech_start_timeout">The microphone did not start. Try again.</string>
     <string name="speech_listening">Listening…</string>
     <string name="speech_processing">Finishing transcription…</string>
     <string name="speech_done">Here’s what you said</string>
