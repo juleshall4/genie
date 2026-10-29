@@ -6,6 +6,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ChatGptModelsTest {
+    @Test fun lunaKeepsTheAccountsAdvertisedReasoningFloor() {
+        val catalog = ChatGptModels.parse(JSONObject("""{"models":[{
+            "slug":"gpt-6-luna","visibility":"list","default_reasoning_level":"low",
+            "supported_reasoning_levels":[{"effort":"low"},{"effort":"medium"}]
+        }]}"""))
+        val model = catalog.selectModel("gpt-6-luna")
+        assertThrows(ChatGptFailure::class.java) { model.selectReasoning("none") }
+        assertEquals("low", model.selectReasoning(null).effort)
+    }
+
     private fun catalog() = ChatGptModels.parse(JSONObject("""
         {"models":[
           {"slug":"hidden","visibility":"hide"},

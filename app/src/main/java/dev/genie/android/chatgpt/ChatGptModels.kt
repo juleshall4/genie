@@ -48,13 +48,13 @@ class ChatGptModels(val models: List<ChatGptModel>) {
             for (index in 0 until array.length()) {
                 val model = array.getJSONObject(index)
                 if (model.optString("visibility") != "list") continue
+                val slug = model.getString("slug")
                 val levels = model.optJSONArray("supported_reasoning_levels") ?: JSONArray()
                 val reasoning = (0 until levels.length()).map { levels.getJSONObject(it) }
                     .filter { it.optString("effort") in directEfforts }
                     .map { ReasoningLevel(it.getString("effort"), it.optString("description")) }
                     .distinctBy { it.effort }
                 val default = model.optString("default_reasoning_level").takeIf { value -> reasoning.any { it.effort == value } }
-                val slug = model.getString("slug")
                 models.add(ChatGptModel(slug, model.optString("display_name").ifBlank { slug }, default, reasoning))
             }
             return ChatGptModels(models)

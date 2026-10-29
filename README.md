@@ -45,3 +45,11 @@ To check actual Nano playback and cancellation after installing the model:
 ./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.LocalSpeechCheck
 adb shell am instrument -w dev.genie.android.test/dev.genie.android.LocalSpeechCheck
 ```
+
+### Low reasoning and Fast mode
+
+Low remains the active reasoning floor for Genie's emulator setup. The reasoning picker follows the account catalog; Genie does not add an unlisted None option. Answer execution has its own worker so background catalog requests do not queue ahead of an answer with a prepared connection and cached catalog. Authentication refresh still waits when needed.
+
+On October 29, 2026, a live Luna/Low test through the same ChatGPT-plan connection rejected `service_tier: "fast"` with `Unsupported service_tier: fast`. A request using the documented `priority` alias completed, but reported `service_tier: "default"`. Accepting the request did not enable Fast mode. No premium tier is enabled in Genie. API Fast mode is documented separately and charges a premium; API access is not evidence that a ChatGPT-plan token can use it. [Fast mode](https://developers.openai.com/api/docs/guides/priority-processing).
+
+The concurrent-refresh smoke check (`-e background_refresh true` on `ResponseLatencyCheck`) measured first text at 4,484 ms, 700 ms, and 768 ms; the corresponding background catalog refreshes completed at 2,205 ms, 964 ms, and 3,152 ms. The last result demonstrates that a slow background refresh no longer serializes ahead of the answer. The first result is an unresolved latency outlier, so these results do not establish a stable subsecond guarantee.

@@ -52,6 +52,7 @@ class ChatGptClient private constructor(context: Context) {
     private var socketAccount: String? = null
     private var socketToken: String? = null
     private val worker = Executors.newSingleThreadExecutor()
+    private val answerWorker = Executors.newSingleThreadExecutor()
     private val http = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS)
         .callTimeout(120, TimeUnit.SECONDS).retryOnConnectionFailure(false).build()
@@ -111,7 +112,7 @@ class ChatGptClient private constructor(context: Context) {
         val operation = ChatGptRequest()
         val accountId = store.active()?.takeIf { it.connected }?.clientId
         requests.add(operation)
-        worker.execute {
+        answerWorker.execute {
             try {
                 if (operation.cancelled) return@execute
                 if (accountId == null) throw ChatGptFailure(R.string.chatgpt_connect_needed)
