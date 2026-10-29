@@ -30,4 +30,12 @@ class StreamingTextBufferTest {
         chunks.addAll(buffer.update(text, true))
         assertEquals(text, chunks.joinToString(" "))
     }
+    @Test fun neverSpeaksCompleteOrPartialProviderCitationMarkers() {
+        val buffer = StreamingTextBuffer()
+        val chunks = buffer.update("Today it is sunny. \uE200cite\uE202turn0") +
+            buffer.update("Today it is sunny. \uE200cite\uE202turn0search0\uE201 More details.", true)
+        assertEquals("Today it is sunny. More details.", chunks.joinToString(" ").replace(Regex("\\s+"), " "))
+        assertFalse(chunks.joinToString().contains("search0"))
+    }
+
 }

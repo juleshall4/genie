@@ -12,7 +12,20 @@ Edits save automatically on this installation and are sent as `instructions` on 
 
 Without an explicit saved model, Genie prefers **GPT-6 Luna** when available in the account's catalog. Without a saved reasoning choice, it prefers **Low** when the selected model supports it. If Luna is unavailable, the automatic selection uses the first available model; if Low is unavailable, the model's advertised default is used. Explicit saved selections remain unchanged.
 
-The ChatGPT connection can accept images and use OpenAI web search when the selected model and account policies permit. Genie's current app sends text only and does not yet expose photo input or enable a web-search tool. It does not connect directly to Google Search. [Connection limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+Genie enables OpenAI web search with automatic tool choice, so the model can look up information when needed. Search responses show clickable inline source citations, and a brief status indicates when a search runs. Citation markers are removed from spoken output. Search availability remains subject to the selected model and account policies. The current app still sends text only and does not yet expose photo input. It does not connect directly to Google Search. [Connection limitations](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+
+### Web search
+
+The shared Responses request builder enables `web_search` with `tool_choice: "auto"` on both WebSocket and HTTP requests. Genie does not force a search for every question. The popup shows a searching status and turns both structured URL citations and Markdown source links into clickable inline sources. Only HTTP(S) citation targets are accepted. Provider citation markers are held back during streaming and removed before speech synthesis.
+
+On October 29, 2026, a live check through the connected ChatGPT account observed a real web-search call, an incrementally delivered answer, and a clickable source. The check exercised the same request builder and transport selection as the popup. All 33 unit tests passed, including search request configuration, search-event/citation parsing, unsafe citation rejection, Markdown source compatibility, and speech-marker removal.
+
+```sh
+./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.chatgpt.WebSearchCheck
+python3 scripts/run_android_check.py dev.genie.android.chatgpt.WebSearchCheck -e live_chatgpt true
+```
+
+This live check uses the connected ChatGPT plan allowance. [OpenAI web-search guide](https://developers.openai.com/api/docs/guides/tools-web-search).
 
 ## Spoken answers with Chirp 3 HD
 

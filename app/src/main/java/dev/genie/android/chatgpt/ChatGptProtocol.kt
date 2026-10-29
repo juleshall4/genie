@@ -99,8 +99,23 @@ object OpenAiIdentity {
     }
 }
 
+data class WebCitation(val start: Int, val end: Int, val url: String, val title: String) {
+    companion object {
+        fun markdownLinks(text: String): List<WebCitation> =
+            Regex("\\[([^]\\n]+)]\\((https?://[^\\s)]+)\\)").findAll(text).mapNotNull { match ->
+                val url = match.groupValues[2]
+                val uri = runCatching { URI(url) }.getOrNull()
+                if (uri?.host.isNullOrBlank()) null
+                else WebCitation(match.range.first, match.range.last + 1, url, match.groupValues[1])
+            }.toList()
+    }
+}
+
 object ResponseStream {
-    fun read(reader: BufferedReader, onText: (String) -> Unit): String {
+    fun read(reader: BufferedReader, onText: (String) -> Unit): String = read(reader, onText, {}, {})
+
+    fun read(reader: BufferedReader, onText: (String) -> Unit,
+             onCitations: (List<WebCitation>) -> Unit, onSearching: () -> Unit): String {
         val text = StringBuilder()
         val data = mutableListOf<String>()
         var completed = false
@@ -112,6 +127,7 @@ object ResponseStream {
             if (payload == "[DONE]") return
             val json = JSONObject(payload)
             when (json.optString("type")) {
+                "response.web_search_call.in_progress", "response.web_search_call.searching" -> onSearching()
                 "response.output_text.delta", "response.refusal.delta" -> {
                     text.append(json.optString("delta"))
                     onText(text.toString())
@@ -119,17 +135,39 @@ object ResponseStream {
                 "response.completed" -> {
                     val response = json.getJSONObject("response")
                     if (response.optString("status") != "completed") throw ChatGptFailure(R.string.chatgpt_interrupted)
-                    if (text.isEmpty()) {
-                        val output = response.optJSONArray("output")
-                        for (i in 0 until (output?.length() ?: 0)) {
-                            val content = output!!.getJSONObject(i).optJSONArray("content") ?: continue
-                            for (j in 0 until content.length()) {
-                                val item = content.getJSONObject(j)
-                                text.append(if (item.optString("type") == "refusal") item.optString("refusal") else item.optString("text"))
+                    val finalText = StringBuilder()
+                    val citations = mutableListOf<WebCitation>()
+                    val output = response.optJSONArray("output")
+                    for (i in 0 until (output?.length() ?: 0)) {
+                        val outputItem = output!!.getJSONObject(i)
+                        if (outputItem.optString("type") == "web_search_call") onSearching()
+                        val content = outputItem.optJSONArray("content") ?: continue
+                        for (j in 0 until content.length()) {
+                            val item = content.getJSONObject(j)
+                            val offset = finalText.length
+                            finalText.append(if (item.optString("type") == "refusal") item.optString("refusal") else item.optString("text"))
+                            val annotations = item.optJSONArray("annotations") ?: continue
+                            for (k in 0 until annotations.length()) {
+                                val annotation = annotations.getJSONObject(k)
+                                if (annotation.optString("type") != "url_citation") continue
+                                val url = annotation.optString("url")
+                                val uri = runCatching { URI(url) }.getOrNull()
+                                if (uri?.scheme !in setOf("https", "http") || uri?.host.isNullOrBlank()) continue
+                                val start = annotation.optInt("start_index", -1)
+                                val end = annotation.optInt("end_index", -1)
+                                if (start >= 0 && end >= start && end <= finalText.length - offset) {
+                                    citations.add(WebCitation(start + offset, end + offset, url, annotation.optString("title")))
+                                }
                             }
                         }
+                    }
+                    if (finalText.isNotEmpty() && finalText.toString() != text.toString()) {
+                        text.clear()
+                        text.append(finalText)
                         onText(text.toString())
                     }
+                    onCitations((citations + WebCitation.markdownLinks(text.toString())
+                        .filter { link -> citations.none { it.start < link.end && it.end > link.start } }).distinct())
                     completed = true
                 }
                 "response.failed", "error" -> {

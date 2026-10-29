@@ -46,7 +46,10 @@ class ResponseSocket(http: OkHttpClient, request: Request) {
     val usable: Boolean get() = failure == null
 
     /** False means no inference was submitted, so the caller may safely use HTTP instead. */
-    fun answer(body: JSONObject, onText: (String) -> Unit): Boolean {
+    fun answer(body: JSONObject, onText: (String) -> Unit): Boolean = answer(body, onText, {}, {})
+
+    fun answer(body: JSONObject, onText: (String) -> Unit,
+               onCitations: (List<WebCitation>) -> Unit, onSearching: () -> Unit): Boolean {
         if (!opened.await(1, TimeUnit.SECONDS) || failure != null) return false
         val event = JSONObject(body.toString()).put("type", "response.create")
         event.remove("stream")
@@ -77,7 +80,7 @@ class ResponseSocket(http: OkHttpClient, request: Request) {
 
             override fun close() = Unit
         }
-        ResponseStream.read(reader.buffered(), onText)
+        ResponseStream.read(reader.buffered(), onText, onCitations, onSearching)
         return true
     }
 

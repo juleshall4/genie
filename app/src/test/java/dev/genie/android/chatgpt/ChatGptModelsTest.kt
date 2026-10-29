@@ -38,6 +38,8 @@ class ChatGptModelsTest {
         val body = selection.requestBody(listOf(ChatTurn("user", "Question"), ChatTurn("assistant", "Answer")))
         assertEquals("model-b", body.getString("model"))
         assertEquals("none", body.getJSONObject("reasoning").getString("effort"))
+        assertEquals("web_search", body.getJSONArray("tools").getJSONObject(0).getString("type"))
+        assertEquals("auto", body.getString("tool_choice"))
         assertFalse(body.getBoolean("store"))
         assertTrue(body.getBoolean("stream"))
         assertEquals("Question", body.getJSONArray("input").getJSONObject(0).getString("content"))

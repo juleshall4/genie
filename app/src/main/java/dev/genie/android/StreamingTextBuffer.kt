@@ -7,7 +7,9 @@ class StreamingTextBuffer {
     fun update(answer: String, finished: Boolean = false): List<String> {
         var safe = answer
         if (!finished) {
-            val fences = Regex("```").findAll(answer).toList()
+            val citation = safe.lastIndexOf('\uE200')
+            if (citation >= 0 && safe.indexOf('\uE201', citation) < 0) safe = safe.take(citation)
+            val fences = Regex("```").findAll(safe).toList()
             if (fences.size % 2 == 1) safe = safe.take(fences.last().range.first)
             // A link label can change when its URL arrives; wait until the link is complete.
             val openLink = safe.lastIndexOf('[')

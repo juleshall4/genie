@@ -108,7 +108,8 @@ class ChatGptClient private constructor(context: Context) {
         }
     }
 
-    fun answer(turns: List<ChatTurn>, onText: (String) -> Unit, onDone: (Int?) -> Unit): ChatGptRequest {
+    fun answer(turns: List<ChatTurn>, onText: (String) -> Unit, onDone: (Int?) -> Unit,
+               onCitations: (List<WebCitation>) -> Unit = {}, onSearching: () -> Unit = {}): ChatGptRequest {
         val personality = settings.personality
         val operation = ChatGptRequest()
         val accountId = store.active()?.takeIf { it.connected }?.clientId
@@ -121,9 +122,10 @@ class ChatGptClient private constructor(context: Context) {
                 val body = settings.selection(accountId, catalog).requestBody(turns, personality)
                 val connection = connection(account)
                 operation.streamCancellation(connection::close)
-                val streamed = connection.answer(body) { text ->
+                val streamed = connection.answer(body, { text ->
                     main.post { if (!operation.cancelled) onText(text) }
-                }
+                }, { citations -> main.post { if (!operation.cancelled) onCitations(citations) } },
+                    { main.post { if (!operation.cancelled) onSearching() } })
                 operation.streamCancellation(null)
                 if (streamed) {
                     main.post { if (!operation.cancelled) onDone(null) }
@@ -152,9 +154,10 @@ class ChatGptClient private constructor(context: Context) {
                     checkStatus(response.code, if (response.isSuccessful) null else response.body?.string())
                     val reader = response.body?.charStream()?.buffered()
                         ?: throw ChatGptFailure(R.string.chatgpt_interrupted)
-                    ResponseStream.read(reader) { text ->
+                    ResponseStream.read(reader, { text ->
                         main.post { if (!operation.cancelled) onText(text) }
-                    }
+                    }, { citations -> main.post { if (!operation.cancelled) onCitations(citations) } },
+                        { main.post { if (!operation.cancelled) onSearching() } })
                 }
                 main.post { if (!operation.cancelled) onDone(null) }
             } catch (error: Exception) {

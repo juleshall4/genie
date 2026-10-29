@@ -76,6 +76,7 @@
     <string name="close_overlay">Close Genie</string>
     <string name="chatgpt_continue">Continue with ChatGPT</string>
     <string name="chatgpt_connect_needed">Connect ChatGPT to answer your question.</string>
+    <string name="chatgpt_searching">Searching the web…</string>
     <string name="chatgpt_thinking">Asking ChatGPT…</string>
     <string name="chatgpt_answered">ChatGPT’s answer</string>
     <string name="chatgpt_retry">Try again</string>

@@ -178,6 +178,16 @@ class GenieOverlay(private val context: Context) {
                 view.findViewById<TextView>(R.id.chatgpt_answer).text = text
                 speechOutput?.updateAnswer(text)
             }
+        }, onCitations = { citations ->
+            if (popup === view) view.findViewById<TextView>(R.id.chatgpt_answer).apply {
+                text = CitedAnswer.render(answer, citations) { url ->
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                }
+                movementMethod = android.text.method.LinkMovementMethod.getInstance()
+                setLinkTextColor(context.getColor(R.color.accent))
+            }
+        }, onSearching = {
+            if (popup === view) view.findViewById<TextView>(R.id.speech_status).setText(R.string.chatgpt_searching)
         }, onDone = { error ->
             if (popup === view) {
                 if (error != null) speechOutput?.stop()

@@ -123,4 +123,37 @@ class ChatGptProtocolTest {
             assertNotEquals(R.string.chatgpt_connect_needed, error.messageResource)
         }
     }
+    @Test fun webSearchEventsDeliverCitationsWithoutAddingSourceMetadataToAnswerText() {
+        val updates = mutableListOf<String>()
+        var searching = false
+        var citations = emptyList<WebCitation>()
+        val result = ResponseStream.read(StringReader("""
+            data: {"type":"response.web_search_call.in_progress"}
+
+            data: {"type":"response.output_text.delta","delta":"Android launched."}
+
+            data: {"type":"response.completed","response":{"status":"completed","output":[
+            data: {"type":"web_search_call","action":{"type":"search"}},
+            data: {"type":"message","content":[{"type":"output_text","text":"Android launched.","annotations":[
+            data: {"type":"url_citation","start_index":0,"end_index":16,"url":"https://developer.android.com/","title":"Android"},
+            data: {"type":"url_citation","start_index":0,"end_index":16,"url":"javascript:alert(1)","title":"Unsafe"}
+            data: ]}]}]}}
+
+        """.trimIndent()).buffered(), updates::add, { citations = it }, { searching = true })
+        assertTrue(searching)
+        assertEquals("Android launched.", result)
+        assertEquals(listOf("Android launched."), updates)
+        assertEquals(listOf(WebCitation(0, 16, "https://developer.android.com/", "Android")), citations)
+    }
+
+    @Test fun markdownSourceLinksRemainAvailableWhenStructuredAnnotationsAreMissing() {
+        val text = "Released in June. [Android](https://developer.android.com/latest-updates)."
+        val links = WebCitation.markdownLinks(text)
+        assertEquals(1, links.size)
+        assertEquals("Android", links.single().title)
+        assertEquals("https://developer.android.com/latest-updates", links.single().url)
+        assertEquals("[Android](https://developer.android.com/latest-updates)", text.substring(links.single().start, links.single().end))
+        assertTrue(WebCitation.markdownLinks("[Unsafe](javascript:alert)").isEmpty())
+    }
+
 }

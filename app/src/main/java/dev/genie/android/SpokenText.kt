@@ -4,6 +4,7 @@ object SpokenText {
     fun chunks(markdown: String, limit: Int): List<String> {
         require(limit > 1)
         var text = markdown
+            .replace(Regex("\uE200[^\uE201]*\uE201"), "")
             .replace(Regex("```[\\s\\S]*?```"), " ")
             .replace(Regex("!?\\[([^]]*)]\\([^)]*\\)"), "$1")
             .replace(Regex("(?m)^\\s{0,3}#{1,6}\\s+"), "")
