@@ -17,6 +17,8 @@ Genie's settings list saved account registrations, support adding or selecting a
 
 Press Space, speak, and wait for transcription to finish. Genie sends only the final transcript to OpenAI, then streams the answer into a scrollable popup. Select **Listen again** to ask a follow-up using the same popup's conversation context.
 
+Before answering, Genie uses the selected ChatGPT model to add capitalization and punctuation to the final transcript. This separate request uses your ChatGPT plan and can add a short delay. Formatting does not use web search or the assistant's personality. Genie keeps the original transcript if formatting fails or changes its letters or numbers. Live text can remain unformatted while you speak.
+
 Closing the popup cancels recognition and any active response request and clears the popup's conversation. It does not undo usage already incurred. Transcripts and answers are not persisted. The connection does not provide access to existing ChatGPT conversations or memory.
 
 Genie fetches the signed-in account's model catalog. In settings, choose a model and its reasoning level. **Automatic** uses the first visible model in the server's order, and **Model default** uses that model's advertised default reasoning level. Choices are saved separately for each account, with reasoning preferences retained per model. Only documented direct Responses API efforts advertised by that model appear; `ultra` is omitted because direct API support has not been verified.

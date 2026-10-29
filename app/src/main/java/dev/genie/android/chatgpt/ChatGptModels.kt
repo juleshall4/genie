@@ -24,12 +24,13 @@ data class ChatGptModel(
 }
 
 data class ChatGptModelSelection(val model: ChatGptModel, val effort: String?) {
-    fun requestBody(turns: List<ChatTurn>, personality: String = ChatGptSettings.DEFAULT_PERSONALITY): JSONObject {
+    fun requestBody(turns: List<ChatTurn>, personality: String = ChatGptSettings.DEFAULT_PERSONALITY,
+                    allowWebSearch: Boolean = true): JSONObject {
         val input = JSONArray(turns.map { JSONObject().put("role", it.role).put("content", it.text) })
         return JSONObject().put("model", model.slug).put("input", input)
             .put("instructions", personality)
-            .put("tools", JSONArray().put(JSONObject().put("type", "web_search")))
-            .put("tool_choice", "auto")
+            .put("tools", JSONArray().apply { if (allowWebSearch) put(JSONObject().put("type", "web_search")) })
+            .put("tool_choice", if (allowWebSearch) "auto" else "none")
             .put("store", false).put("stream", true).apply {
                 if (effort != null) put("reasoning", JSONObject().put("effort", effort))
             }

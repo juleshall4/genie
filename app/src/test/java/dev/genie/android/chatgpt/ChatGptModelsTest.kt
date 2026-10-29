@@ -6,6 +6,17 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ChatGptModelsTest {
+    @Test fun formattingDisablesSearchAndReplacesTheAssistantPersonality() {
+        val body = catalog().selectModel(null).selectReasoning(null).requestBody(
+            listOf(ChatTurn("user", "what is the weather like in Liverpool")),
+            TranscriptFormatting.INSTRUCTIONS, allowWebSearch = false
+        )
+        assertEquals(0, body.getJSONArray("tools").length())
+        assertEquals("none", body.getString("tool_choice"))
+        assertEquals(TranscriptFormatting.INSTRUCTIONS, body.getString("instructions"))
+        assertEquals("what is the weather like in Liverpool", body.getJSONArray("input").getJSONObject(0).getString("content"))
+    }
+
     @Test fun lunaKeepsTheAccountsAdvertisedReasoningFloor() {
         val catalog = ChatGptModels.parse(JSONObject("""{"models":[{
             "slug":"gpt-6-luna","visibility":"list","default_reasoning_level":"low",

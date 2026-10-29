@@ -258,6 +258,23 @@ class GenieOverlay(private val context: Context) {
 
     private fun sendTranscript(view: View, question: String) {
         answerRequest?.cancel()
+        if (chatGpt.store.active()?.connected != true) {
+            answerTranscript(view, question)
+            return
+        }
+        setMode(view, BoxMode.Thinking)
+        setStatus(view, R.string.speech_processing)
+        view.findViewById<View>(R.id.speech_action).visibility = View.GONE
+        answerRequest = chatGpt.formatTranscript(question) { formatted, _ ->
+            if (popup === view) {
+                displayTranscript(view, formatted)
+                answerTranscript(view, formatted)
+            }
+        }
+    }
+
+    private fun answerTranscript(view: View, question: String) {
+        answerRequest?.cancel()
         val sources = AnswerSources(view.findViewById(R.id.answer_sources), view.findViewById(R.id.source_links)) { url ->
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }
@@ -309,7 +326,7 @@ class GenieOverlay(private val context: Context) {
                         hide()
                         context.startActivity(Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     }
-                    else -> action(view, R.string.chatgpt_retry) { sendTranscript(view, question) }
+                    else -> action(view, R.string.chatgpt_retry) { answerTranscript(view, question) }
                 }
             }
         })
