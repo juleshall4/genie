@@ -7,44 +7,31 @@ import android.content.IntentFilter
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import okhttp3.Call
-import java.io.File
+import io.grpc.Status
 import java.util.concurrent.Executors
 
 class ChirpSpeechOutput(
     private val context: Context,
-    private val api: ChirpApi = ChirpApi(),
+    private val api: ChirpStreamFactory = ChirpStreamingApi(),
     private val onStatus: (Int) -> Unit
 ) {
     private val main = Handler(Looper.getMainLooper())
-    private val worker = Executors.newSingleThreadExecutor()
+    private val outgoing = Executors.newSingleThreadExecutor()
     private val settings = ChirpSettings(context)
     private val audio = context.getSystemService(AudioManager::class.java)
     private val attributes = AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()
     private val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
         .setAudioAttributes(attributes).setOnAudioFocusChangeListener({ change -> if (change < 0) stop() }, main).build()
-    private val pending = ArrayDeque<String>()
-    private val ready = ArrayDeque<ByteArray>()
-    private var buffer = SpeechTextBuffer()
-    private var player: MediaPlayer? = null
-    private var audioFile: File? = null
-    private var call: Call? = null
-    @Volatile private var generation = 0
+    private var buffer = StreamingTextBuffer()
+    @Volatile private var session: Session? = null
     private var closed = false
-    private var active = false
-    private var finished = false
-    private var fetching = false
-    private var voice = settings.voice
-    private var speakingRate = settings.speakingRate
-    private var apiKey = ""
     private val ringerChanged = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
-            if (active && isSilent()) { stop(); onStatus(R.string.read_aloud_silent) }
+            if (session != null && isSilent()) { stop(); onStatus(R.string.read_aloud_silent) }
         }
     }
 
@@ -59,135 +46,125 @@ class ChirpSpeechOutput(
     fun beginAnswer() {
         if (closed) return
         stop()
-        // Silent mode gates credentials, character reservations, and network work.
         if (isSilent()) { onStatus(R.string.read_aloud_silent); return }
         if (!settings.enabled) { onStatus(R.string.read_aloud_disabled); return }
-        apiKey = try { settings.apiKey } catch (_: Exception) { "" }
-        if (apiKey.isBlank()) { onStatus(R.string.read_aloud_setup_needed); return }
-        voice = settings.voice
-        speakingRate = settings.speakingRate
-        active = true
+        val key = try { settings.apiKey } catch (_: Exception) { "" }
+        if (key.isBlank()) { onStatus(R.string.read_aloud_setup_needed); return }
+        if (settings.usage().characters >= ChirpSettings.MONTHLY_LIMIT) { onStatus(R.string.read_aloud_limit); return }
+        val next = Session()
+        session = next
+        val voice = settings.voice
+        val rate = settings.speakingRate
+        // Connect and send config during answer generation, before the first words arrive.
+        outgoing.execute {
+            if (!next.allowed()) return@execute
+            try {
+                next.attach(api.open(key, voice, rate, next))
+            } catch (_: Exception) { next.fail(R.string.read_aloud_failed) }
+        }
     }
 
     fun updateAnswer(text: String, done: Boolean = false) {
-        if (!active || closed) return
-        if (isSilent() || !settings.enabled) { stop(); return }
-        pending.addAll(buffer.update(text, done))
-        finished = done
-        pump()
-    }
-
-    fun speak(text: String) {
-        beginAnswer()
-        updateAnswer(text, true)
-    }
-
-    private fun pump() {
-        if (!active || closed) return
-        if (isSilent() || !settings.enabled) { stop(); return }
-        if (player == null && ready.isNotEmpty()) play(ready.removeFirst())
-        if (!fetching && pending.isNotEmpty() && ready.isEmpty()) {
-            val chunk = pending.removeFirst()
-            val current = generation
-            val request = api.request(apiKey, voice, chunk, speakingRate)
-            call = request
-            fetching = true
-            if (player == null) onStatus(R.string.read_aloud_preparing)
-            worker.execute {
+        val current = session ?: return
+        if (!current.allowed()) { stop(); return }
+        for (chunk in buffer.update(text, done)) {
+            val submitted = chunk + " "
+            outgoing.execute {
+                if (!current.allowed()) return@execute
                 try {
-                    // Check again immediately before submission; a queued worker must not send after mute/stop.
-                    if (current != generation || isSilent() || !settings.enabled) {
-                        request.cancel()
-                        main.post { if (current == generation) stop() }
+                    if (!settings.reserve(submitted.codePointCount(0, submitted.length))) {
+                        current.fail(R.string.read_aloud_limit)
                         return@execute
                     }
-                    if (!settings.reserve(chunk.codePointCount(0, chunk.length))) {
-                        main.post { if (current == generation) { stop(); onStatus(R.string.read_aloud_limit) } }
-                        return@execute
-                    }
-                    val bytes = api.audio(request)
-                    main.post {
-                        if (current == generation && active && !closed) {
-                            fetching = false
-                            call = null
-                            ready.addLast(bytes)
-                            pump()
-                        }
-                    }
-                } catch (error: Exception) {
-                    main.post {
-                        if (current == generation && active && !closed) {
-                            stop()
-                            onStatus(when ((error as? ChirpFailure)?.status) {
-                                400, 401, 403 -> R.string.read_aloud_credentials_failed
-                                429 -> R.string.read_aloud_quota_failed
-                                else -> R.string.read_aloud_failed
-                            })
-                        }
-                    }
-                }
+                    current.send(submitted)
+                } catch (_: Exception) { current.fail(R.string.read_aloud_failed) }
             }
         }
-        if (finished && pending.isEmpty() && ready.isEmpty() && !fetching && player == null) {
-            active = false
-            audio.abandonAudioFocusRequest(focus)
-            onStatus(R.string.read_aloud_ready)
+        if (done) outgoing.execute {
+            if (current.allowed()) try { current.finishInput() } catch (_: Exception) { current.fail(R.string.read_aloud_failed) }
         }
     }
 
-    private fun play(bytes: ByteArray) {
-        val current = generation
-        try {
-            val file = File.createTempFile("chirp-", ".mp3", context.cacheDir)
-            audioFile = file
-            file.writeBytes(bytes)
-            player = MediaPlayer().apply {
-                setAudioAttributes(attributes)
-                setDataSource(file.absolutePath)
-                setOnPreparedListener {
-                    if (current == generation && active && !closed) {
-                        if (isSilent() || !settings.enabled) { stop(); return@setOnPreparedListener }
-                        audio.requestAudioFocus(focus)
-                        start()
-                        onStatus(R.string.read_aloud_speaking)
-                    }
+    fun speak(text: String) { beginAnswer(); updateAnswer(text, true) }
+
+    private inner class Session : ChirpStreamFactory.Listener {
+        private val lock = Any()
+        @Volatile private var cancelled = false
+        private var stream: ChirpStream? = null
+        private val player = StreamingPcmPlayer(attributes, ::allowed) {
+            main.post {
+                if (allowed()) {
+                    audio.requestAudioFocus(focus)
+                    onStatus(R.string.read_aloud_speaking)
                 }
-                setOnCompletionListener { completed ->
-                    if (current == generation && player === completed && !closed) {
-                        releasePlayer()
-                        pump()
-                    }
-                }
-                setOnErrorListener { failed, _, _ ->
-                    if (current == generation && player === failed && !closed) {
-                        stop(); onStatus(R.string.read_aloud_failed)
-                    }
-                    true
-                }
-                prepareAsync()
             }
-        } catch (_: Exception) { stop(); onStatus(R.string.read_aloud_failed) }
+        }
+
+        fun allowed() = !cancelled && session === this && !isSilent() && settings.enabled
+
+        fun attach(opened: ChirpStream) = synchronized(lock) {
+            if (!allowed()) opened.cancel() else stream = opened
+        }
+
+        fun send(text: String) = synchronized(lock) {
+            if (allowed()) {
+                // Include the delimiter in the reservation: Google counts all submitted characters.
+                stream?.send(text)
+            }
+        }
+
+        fun finishInput() = synchronized(lock) { if (allowed()) stream?.finish() }
+
+        override fun onAudio(pcm: ByteArray) {
+            if (!allowed()) return
+            try { player.write(pcm) } catch (_: Exception) { fail(R.string.read_aloud_failed) }
+        }
+
+        override fun onComplete() {
+            if (!allowed()) return
+            try {
+                player.finish()
+                main.post {
+                    if (session === this && allowed()) {
+                        stop()
+                        onStatus(R.string.read_aloud_ready)
+                    }
+                }
+            } catch (_: Exception) { fail(R.string.read_aloud_failed) }
+        }
+
+        override fun onError(code: Status.Code) {
+            fail(when (code) {
+                Status.Code.INVALID_ARGUMENT, Status.Code.UNAUTHENTICATED, Status.Code.PERMISSION_DENIED -> R.string.read_aloud_credentials_failed
+                Status.Code.RESOURCE_EXHAUSTED -> R.string.read_aloud_quota_failed
+                else -> R.string.read_aloud_failed
+            })
+        }
+
+        fun fail(message: Int) {
+            cancel()
+            main.post {
+                if (session === this) { stop(); onStatus(message) }
+            }
+        }
+
+        fun cancel() {
+            synchronized(lock) {
+                if (cancelled) return
+                cancelled = true
+                stream?.cancel()
+                stream = null
+            }
+            player.close()
+        }
     }
 
     fun stop() {
-        generation++
-        active = false
-        fetching = false
-        finished = false
-        pending.clear()
-        ready.clear()
-        buffer = SpeechTextBuffer()
-        call?.cancel()
-        call = null
-        releasePlayer()
+        val current = session
+        session = null
+        current?.cancel()
+        buffer = StreamingTextBuffer()
         audio.abandonAudioFocusRequest(focus)
-    }
-
-    private fun releasePlayer() {
-        player?.release()
-        player = null
-        audioFile?.delete()
-        audioFile = null
     }
 
     fun close() {
@@ -195,6 +172,6 @@ class ChirpSpeechOutput(
         closed = true
         stop()
         context.unregisterReceiver(ringerChanged)
-        worker.shutdownNow()
+        outgoing.shutdownNow()
     }
 }

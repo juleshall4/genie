@@ -1,0 +1,37 @@
+// Copyright 2026 Google LLC
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy at https://www.apache.org/licenses/LICENSE-2.0
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+// Wire-compatible subset of google/cloud/texttospeech/v1/cloud_tts.proto.
+// Source: https://github.com/googleapis/googleapis/blob/master/google/cloud/texttospeech/v1/cloud_tts.proto
+syntax = "proto3";
+package google.cloud.texttospeech.v1;
+option java_package = "dev.genie.android.tts.proto";
+option java_multiple_files = true;
+
+message VoiceSelectionParams {
+  string language_code = 1;
+  string name = 2;
+}
+message StreamingAudioConfig {
+  int32 audio_encoding = 1; // PCM = 7: headerless signed 16-bit little-endian audio.
+  int32 sample_rate_hertz = 2;
+  double speaking_rate = 3;
+}
+message StreamingSynthesizeConfig {
+  VoiceSelectionParams voice = 1;
+  StreamingAudioConfig streaming_audio_config = 4;
+}
+message StreamingSynthesisInput { string text = 1; }
+message StreamingSynthesizeRequest {
+  oneof streaming_request {
+    StreamingSynthesizeConfig streaming_config = 1;
+    StreamingSynthesisInput input = 2;
+  }
+}
+message StreamingSynthesizeResponse { bytes audio_content = 1; }

@@ -1,8 +1,16 @@
+import com.google.protobuf.gradle.*
+
 plugins {
     id("com.android.application")
+    id("com.google.protobuf") version "0.10.0"
 }
 
 dependencies {
+    implementation("io.grpc:grpc-okhttp:1.85.1")
+    implementation("io.grpc:grpc-protobuf-lite:1.85.1")
+    implementation("io.grpc:grpc-stub:1.85.1")
+    implementation("com.google.protobuf:protobuf-javalite:4.36.2")
+    testImplementation("io.grpc:grpc-inprocess:1.85.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.nimbusds:nimbus-jose-jwt:10.5")
     testImplementation("junit:junit:4.13.2")
@@ -49,6 +57,15 @@ tasks.matching { it.name == "installDebug" }.configureEach {
             val output = process.inputStream.bufferedReader().readText()
             check(process.waitFor() == 0) { "Device setup failed: $output" }
             println(output.trim())
+        }
+    }
+}
+
+protobuf {
+    protoc { artifact = "com.google.protobuf:protoc:4.36.2" }
+    generateProtoTasks {
+        all().configureEach {
+            builtins { maybeCreate("java").option("lite") }
         }
     }
 }

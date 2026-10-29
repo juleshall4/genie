@@ -28,11 +28,15 @@ The meter counts characters submitted from this installation, excluding offline 
 
 This is a conservative on-device estimate, not a Google billing meter or a guarantee of free usage. Other apps and projects, clearing app data or reinstalling, and Google's billing boundaries can affect actual totals. Check the Cloud console for authoritative usage. Google's published Chirp 3 HD allowance is 1 million characters per month, followed by $30 per million; a billing-enabled project is required. [Pricing](https://cloud.google.com/text-to-speech/pricing).
 
-Genie sends complete sentences through Google's REST synthesis endpoint while ChatGPT is still generating text. Long unpunctuated passages are split at word boundaries around 300 characters, with any remaining text flushed when the answer finishes. It plays MP3 chunks in order and prepares the next chunk during playback. Errors, dismissal, and listening again cancel queued speech. It does not yet use Google's bidirectional audio streaming API. Google supports that lower-latency path for Chirp 3 HD, but it requires a streaming transport rather than the existing REST endpoint. [Streaming guide](https://docs.cloud.google.com/text-to-speech/docs/create-audio-text-streaming). [Synthesis API](https://docs.cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize).
+Genie opens one bidirectional gRPC stream per answer and sends complete words as ChatGPT generates them. It does not wait for sentence punctuation. A small text buffer holds unfinished words, code blocks, and incomplete Markdown links. The final update flushes remaining text and closes the input side while audio continues to arrive.
+
+Google returns headerless 24 kHz mono PCM. Genie writes those packets directly to Android's streaming `AudioTrack`, starting before the full audio response is available. The connection is shared across answers, and stream configuration is sent during ChatGPT generation to overlap connection setup with answer generation. Dismissing Genie, listening again, or entering silent/vibrate cancels the stream and flushes playback. No failed stream is automatically resubmitted.
+
+The gRPC implementation uses an Android-compatible transport and a protobuf-lite subset of Google's public wire schema, rather than the unsupported-on-Android high-level Cloud Java client. [Streaming guide](https://docs.cloud.google.com/text-to-speech/docs/create-audio-text-streaming) · [Protocol schema](https://github.com/googleapis/googleapis/blob/master/google/cloud/texttospeech/v1/cloud_tts.proto).
 
 ### Verification
 
-On October 29, 2026, the emulator passed 26 unit tests and instrumentation checks for month rollover, persistent cutoff enforcement, concurrent usage reservations, encrypted credential import, and key changes preserving usage. Live checks using the configured Cloud Text-to-Speech key completed synthesis and MP3 playback with British Aoede at normal speed and British Zephyr at 1.25×, then stopped a second answer when playback began. Voice and speed preferences persisted across settings reloads. The shortcut reconnected after successful and skipped checks; repair preserved an intentionally disabled shortcut. This verifies the emulator path, not physical Titan performance or subjective voice quality.
+On October 29, 2026, the emulator passed 26 unit tests and instrumentation checks for month rollover, persistent cutoff enforcement, concurrent usage reservations, encrypted credential import, and key changes preserving usage. Live checks using the configured Cloud Text-to-Speech key completed synthesis and playback with British Aoede at normal speed and British Zephyr at 1.25×, then stopped a second answer when playback began. Voice and speed preferences persisted across settings reloads. The shortcut reconnected after successful and skipped checks; repair preserved an intentionally disabled shortcut. This verifies the emulator path, not physical Titan performance or subjective voice quality.
 
 To repeat the live check (a few short billable speech requests, counted in the meter):
 
@@ -41,11 +45,11 @@ To repeat the live check (a few short billable speech requests, counted in the m
 python3 scripts/run_android_check.py dev.genie.android.ChirpPlaybackCheck -e live_chirp true
 ```
 
-### Earlier speech and silent-mode verification
+### Streaming speech verification
 
-The sentence queue releases readable text while the answer is still arriving and prefetches one chunk during playback. On October 29, 2026, a live US Aoede check at 1.25× started playback before the final text was supplied, with first audio at 1,383 ms from submitting the initial text. This is one emulator sample, excludes ChatGPT generation time, and is not a latency guarantee. A production-path test confirmed normal-mode submission and zero transport requests or character reservations for previews and answer updates in silent and vibrate modes. All 29 unit tests passed.
+On October 29, 2026, a live US Aoede streaming check at 1.25× started audio before the final text was supplied, with first audio at **868 ms** from submitting the initial text. The earlier sentence/MP3 path measured 1,383 ms in a separate sample. These are single emulator samples, exclude ChatGPT generation time, and do not establish a stable latency guarantee. The live check also drained final audio and stopped a subsequent answer on interruption.
 
-Bidirectional streaming is available for Chirp 3 HD and could remove the wait for each complete MP3 response. It requires a streaming RPC transport and incremental audio playback. The current implementation instead gains earlier initiation by submitting sentences before ChatGPT finishes; it does not claim to stream Google's audio response.
+Unit coverage checks configuration-first gRPC messages, selected locale/speed, raw PCM arriving before input closes, remote cancellation, and word-by-word text buffering without repetition. Emulator checks cover silent/vibrate suppression of stream opening and text submission, character accounting, and cancellation when ringer mode changes. Offline voice previews remain separate from the network speech path.
 
 ## Response latency
 

@@ -6,8 +6,7 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.media.AudioManager
 import android.os.Bundle
-import okhttp3.OkHttpClient
-import java.io.IOException
+import io.grpc.Status
 import java.util.UUID
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -36,10 +35,19 @@ class ChirpSilentCheck : Instrumentation() {
         val requests = AtomicInteger()
         val failure = CountDownLatch(1)
         var modeChange: CountDownLatch? = null
-        val api = ChirpApi(OkHttpClient.Builder().addInterceptor {
-            requests.incrementAndGet()
-            throw IOException("Test transport: no Google request sent")
-        }.build())
+        val opens = AtomicInteger()
+        val secondOpened = CountDownLatch(1)
+        val api = ChirpStreamFactory { _, _, _, listener ->
+            if (opens.incrementAndGet() == 2) secondOpened.countDown()
+            object : ChirpStream {
+                override fun send(text: String) {
+                    requests.incrementAndGet()
+                    listener.onError(Status.Code.UNAVAILABLE)
+                }
+                override fun finish() = Unit
+                override fun cancel() = Unit
+            }
+        }
         try {
             uiAutomation.adoptShellPermissionIdentity("android.permission.MODIFY_AUDIO_SETTINGS", "android.permission.ACCESS_NOTIFICATION_POLICY")
             if (!hadPolicyAccess) policy("allow_dnd")
@@ -56,6 +64,7 @@ class ChirpSilentCheck : Instrumentation() {
             }
             check(failure.await(10, TimeUnit.SECONDS))
             check(requests.get() == 1)
+            check(opens.get() == 1)
             val before = settings.usage().characters
             for (mode in listOf(AudioManager.RINGER_MODE_SILENT, AudioManager.RINGER_MODE_VIBRATE)) {
                 audio.ringerMode = mode
@@ -67,19 +76,22 @@ class ChirpSilentCheck : Instrumentation() {
                     speech?.updateAnswer("This completed sentence must never reach Google. More text follows.", true)
                 }
                 check(requests.get() == 1)
+            check(opens.get() == 1)
                 check(settings.usage().characters == before)
             }
             audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
             runOnMainSync {
                 speech?.beginAnswer()
-                speech?.updateAnswer("An unfinished")
+                speech?.updateAnswer("Unfinished")
             }
+            check(secondOpened.await(5, TimeUnit.SECONDS))
             modeChange = CountDownLatch(1)
             audio.ringerMode = AudioManager.RINGER_MODE_SILENT
             check(modeChange!!.await(5, TimeUnit.SECONDS)) { "Active answer did not observe silent mode" }
             audio.ringerMode = AudioManager.RINGER_MODE_NORMAL
-            runOnMainSync { speech?.updateAnswer("An unfinished answer should stay cancelled after sound returns.", true) }
+            runOnMainSync { speech?.updateAnswer("Unfinished answer should stay cancelled after sound returns.", true) }
             check(requests.get() == 1)
+            check(opens.get() == 2)
             check(settings.usage().characters == before)
             finish(Activity.RESULT_OK, Bundle().apply {
                 putString("stream", "Passed: normal mode submits; silent and vibrate block preview and streamed answers with no requests or usage reservations; entering silent cancels the current answer.\n")
