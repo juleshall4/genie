@@ -26,6 +26,11 @@ class ChirpSettingsCheck : Instrumentation() {
             preferences.edit().putString("month", "2000-01").putLong("characters", 900_000).commit()
             val settings = ChirpSettings(isolated)
             check(settings.usage().characters == 0L)
+            check(settings.speakingRate == 1f)
+            settings.speakingRate = 1.25f
+            settings.voice = "en-GB-Chirp3-HD-Zephyr"
+            check(ChirpSettings(isolated).speakingRate == 1.25f)
+            check(ChirpSettings(isolated).voice == "en-GB-Chirp3-HD-Zephyr")
             check(settings.reserve(900_000))
             check(!ChirpSettings(isolated).reserve(1))
             check(settings.usage().characters == 900_000L)
@@ -49,7 +54,7 @@ class ChirpSettingsCheck : Instrumentation() {
             check(accepted.get() == 9)
             check(ChirpSettings(isolated).usage().characters == 900_000L)
             finish(Activity.RESULT_OK, Bundle().apply {
-                putString("stream", "Passed: month rollover, persistent cutoff, private-file import and encryption, key changes retain usage, concurrent reservations.\n")
+                putString("stream", "Passed: month rollover, persistent cutoff, private-file import and encryption, key changes retain usage, concurrent reservations, voice and speed persistence.\n")
             })
         } catch (failure: Exception) {
             finish(Activity.RESULT_CANCELED, Bundle().apply { putString("stream", "Failed: ${failure.javaClass.simpleName}\n") })

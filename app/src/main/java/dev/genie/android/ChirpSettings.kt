@@ -62,6 +62,13 @@ class ChirpSettings(context: Context) {
         get() = preferences.getString("voice", VOICES.first()) ?: VOICES.first()
         set(value) { require(value in VOICES); preferences.edit().putString("voice", value).apply() }
 
+    var speakingRate: Float
+        get() = preferences.getFloat("speaking_rate", 1f)
+        set(value) {
+            require(value.isFinite() && value in 0.25f..2f)
+            preferences.edit().putFloat("speaking_rate", value).apply()
+        }
+
     // A process-wide lock covers both the overlay and the settings preview.
     fun usage(): Usage = synchronized(usageLock) {
         val month = YearMonth.now(ZoneOffset.UTC).toString()
@@ -82,7 +89,64 @@ class ChirpSettings(context: Context) {
 
     companion object {
         const val MONTHLY_LIMIT = 900_000L
-        val VOICES = listOf("en-GB-Chirp3-HD-Aoede", "en-GB-Chirp3-HD-Charon", "en-GB-Chirp3-HD-Kore", "en-GB-Chirp3-HD-Puck")
+        val VOICES = listOf(
+            "en-GB-Chirp3-HD-Aoede",
+            "en-GB-Chirp3-HD-Achernar",
+            "en-GB-Chirp3-HD-Achird",
+            "en-GB-Chirp3-HD-Algenib",
+            "en-GB-Chirp3-HD-Algieba",
+            "en-GB-Chirp3-HD-Alnilam",
+            "en-GB-Chirp3-HD-Autonoe",
+            "en-GB-Chirp3-HD-Callirrhoe",
+            "en-GB-Chirp3-HD-Charon",
+            "en-GB-Chirp3-HD-Despina",
+            "en-GB-Chirp3-HD-Enceladus",
+            "en-GB-Chirp3-HD-Erinome",
+            "en-GB-Chirp3-HD-Fenrir",
+            "en-GB-Chirp3-HD-Gacrux",
+            "en-GB-Chirp3-HD-Iapetus",
+            "en-GB-Chirp3-HD-Kore",
+            "en-GB-Chirp3-HD-Laomedeia",
+            "en-GB-Chirp3-HD-Leda",
+            "en-GB-Chirp3-HD-Orus",
+            "en-GB-Chirp3-HD-Puck",
+            "en-GB-Chirp3-HD-Pulcherrima",
+            "en-GB-Chirp3-HD-Rasalgethi",
+            "en-GB-Chirp3-HD-Sadachbia",
+            "en-GB-Chirp3-HD-Sadaltager",
+            "en-GB-Chirp3-HD-Schedar",
+            "en-GB-Chirp3-HD-Sulafat",
+            "en-GB-Chirp3-HD-Umbriel",
+            "en-GB-Chirp3-HD-Vindemiatrix",
+            "en-GB-Chirp3-HD-Zephyr",
+            "en-GB-Chirp3-HD-Zubenelgenubi",
+            "en-US-Chirp3-HD-Aoede",
+            "en-US-Chirp3-HD-Charon",
+            "en-US-Chirp3-HD-Kore",
+            "en-US-Chirp3-HD-Puck"
+        )
+        val MALE_VOICES = setOf(
+            "en-US-Chirp3-HD-Charon",
+            "en-US-Chirp3-HD-Puck",
+            "en-GB-Chirp3-HD-Achird",
+            "en-GB-Chirp3-HD-Algenib",
+            "en-GB-Chirp3-HD-Algieba",
+            "en-GB-Chirp3-HD-Alnilam",
+            "en-GB-Chirp3-HD-Charon",
+            "en-GB-Chirp3-HD-Enceladus",
+            "en-GB-Chirp3-HD-Fenrir",
+            "en-GB-Chirp3-HD-Iapetus",
+            "en-GB-Chirp3-HD-Orus",
+            "en-GB-Chirp3-HD-Puck",
+            "en-GB-Chirp3-HD-Rasalgethi",
+            "en-GB-Chirp3-HD-Sadachbia",
+            "en-GB-Chirp3-HD-Sadaltager",
+            "en-GB-Chirp3-HD-Schedar",
+            "en-GB-Chirp3-HD-Umbriel",
+            "en-GB-Chirp3-HD-Zubenelgenubi"
+        )
+        val SPEAKING_RATES = (1..8).map { it * 0.25f }
+
         private val usageLock = Any()
     }
 }

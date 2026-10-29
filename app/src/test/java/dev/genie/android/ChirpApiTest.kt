@@ -14,14 +14,16 @@ class ChirpApiTest {
             val audio = byteArrayOf(73, 68, 51, 1, 2, 3)
             server.enqueue(MockResponse().setBody(JSONObject().put("audioContent", Base64.getEncoder().encodeToString(audio)).toString()))
             val api = ChirpApi(endpoint = server.url("/v1/text:synthesize").toString())
-            assertArrayEquals(audio, api.audio(api.request("test-key", "en-GB-Chirp3-HD-Charon", "Hello, Genie.")))
+            assertArrayEquals(audio, api.audio(api.request("test-key", "en-US-Chirp3-HD-Charon", "Hello, Genie.", 1.25f)))
             val request = server.takeRequest()
             assertEquals("test-key", request.getHeader("X-Goog-Api-Key"))
             assertFalse(request.path!!.contains("test-key"))
             val body = JSONObject(request.body.readUtf8())
             assertEquals("Hello, Genie.", body.getJSONObject("input").getString("text"))
-            assertEquals("en-GB-Chirp3-HD-Charon", body.getJSONObject("voice").getString("name"))
+            assertEquals("en-US-Chirp3-HD-Charon", body.getJSONObject("voice").getString("name"))
+            assertEquals("en-US", body.getJSONObject("voice").getString("languageCode"))
             assertEquals("MP3", body.getJSONObject("audioConfig").getString("audioEncoding"))
+            assertEquals(1.25, body.getJSONObject("audioConfig").getDouble("speakingRate"), 0.0001)
         }
     }
 

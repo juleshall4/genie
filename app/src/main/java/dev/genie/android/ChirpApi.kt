@@ -15,11 +15,12 @@ class ChirpApi(
         .callTimeout(45, TimeUnit.SECONDS).build(),
     private val endpoint: String = "https://texttospeech.googleapis.com/v1/text:synthesize"
 ) {
-    fun request(apiKey: String, voice: String, text: String): Call {
+    fun request(apiKey: String, voice: String, text: String, speakingRate: Float = 1f): Call {
+        require(speakingRate.isFinite() && speakingRate in 0.25f..2f)
         require(text.toByteArray(Charsets.UTF_8).size <= 5000)
         val body = JSONObject().put("input", JSONObject().put("text", text))
-            .put("voice", JSONObject().put("languageCode", "en-GB").put("name", voice))
-            .put("audioConfig", JSONObject().put("audioEncoding", "MP3"))
+            .put("voice", JSONObject().put("languageCode", voice.substringBefore("-Chirp3")).put("name", voice))
+            .put("audioConfig", JSONObject().put("audioEncoding", "MP3").put("speakingRate", speakingRate.toDouble()))
         return http.newCall(Request.Builder().url(endpoint).header("X-Goog-Api-Key", apiKey)
             .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType())).build())
     }

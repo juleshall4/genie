@@ -53,9 +53,23 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.read_aloud_voice).setOnClickListener {
             val settings = ChirpSettings(this)
             AlertDialog.Builder(this).setTitle(R.string.read_aloud_voice)
-                .setSingleChoiceItems(ChirpSettings.VOICES.map { it.substringAfterLast('-') }.toTypedArray(),
+                .setSingleChoiceItems(ChirpSettings.VOICES.map {
+                    getString(R.string.read_aloud_voice_option, voiceLabel(it),
+                        getString(if (it in ChirpSettings.MALE_VOICES) R.string.voice_male else R.string.voice_female))
+                }.toTypedArray(),
                     ChirpSettings.VOICES.indexOf(settings.voice)) { dialog, index ->
                     settings.voice = ChirpSettings.VOICES[index]
+                    renderSpeech()
+                    dialog.dismiss()
+                }.setNegativeButton(android.R.string.cancel, null).show()
+        }
+        findViewById<Button>(R.id.read_aloud_speed).setOnClickListener {
+            val settings = ChirpSettings(this)
+            AlertDialog.Builder(this).setTitle(R.string.read_aloud_speed)
+                .setSingleChoiceItems(ChirpSettings.SPEAKING_RATES.map {
+                    getString(R.string.read_aloud_speed_option, it)
+                }.toTypedArray(), ChirpSettings.SPEAKING_RATES.indexOf(settings.speakingRate)) { dialog, index ->
+                    settings.speakingRate = ChirpSettings.SPEAKING_RATES[index]
                     renderSpeech()
                     dialog.dismiss()
                 }.setNegativeButton(android.R.string.cancel, null).show()
@@ -113,8 +127,21 @@ class MainActivity : Activity() {
             max = ChirpSettings.MONTHLY_LIMIT.toInt()
             progress = usage.characters.coerceAtMost(ChirpSettings.MONTHLY_LIMIT).toInt()
         }
+        findViewById<Button>(R.id.read_aloud_speed).text = getString(
+            R.string.read_aloud_speed_value, settings.speakingRate)
         findViewById<Button>(R.id.read_aloud_voice).text = getString(
-            R.string.read_aloud_voice_value, settings.voice.substringAfterLast('-'))
+            R.string.read_aloud_voice_value, voiceLabel(settings.voice))
+    }
+
+    private fun voiceLabel(voice: String): String = getString(
+        R.string.read_aloud_voice_label, voice.substringAfterLast('-'),
+        getString(if (voice.startsWith("en-US-")) R.string.voice_american else R.string.voice_british))
+
+    private fun configurationStatus(message: Int?) {
+        findViewById<TextView>(R.id.chatgpt_configuration_status).apply {
+            visibility = if (message == null) android.view.View.GONE else android.view.View.VISIBLE
+            if (message != null) setText(message)
+        }
     }
 
     private fun configureSpeech() {
@@ -185,14 +212,12 @@ class MainActivity : Activity() {
             setText(R.string.chatgpt_choose_reasoning)
         }
         findViewById<Button>(R.id.chatgpt_refresh_models).isEnabled = account != null
-        findViewById<TextView>(R.id.chatgpt_configuration_status).setText(
-            if (account == null) R.string.chatgpt_connect_needed else R.string.chatgpt_loading_models
-        )
+        configurationStatus(if (account == null) null else R.string.chatgpt_loading_models)
         if (account == null) return
         modelRequest = client.models { catalog, error ->
             if (client.store.active()?.clientId == account.clientId && !isFinishing) {
                 modelCatalog = catalog
-                if (error != null) findViewById<TextView>(R.id.chatgpt_configuration_status).setText(error)
+                if (error != null) configurationStatus(error)
                 else renderConfiguration()
             }
         }
@@ -204,13 +229,13 @@ class MainActivity : Activity() {
         val settings = ChatGptClient.get(this).settings
         val savedModel = settings.model(account)
         findViewById<Button>(R.id.chatgpt_model).isEnabled = catalog.models.isNotEmpty()
-        findViewById<TextView>(R.id.chatgpt_configuration_status).setText(R.string.chatgpt_configuration_help)
+        configurationStatus(null)
         val model = try {
             catalog.selectModel(savedModel)
         } catch (failure: ChatGptFailure) {
             findViewById<Button>(R.id.chatgpt_model).setText(R.string.chatgpt_model_unavailable)
             findViewById<Button>(R.id.chatgpt_reasoning).isEnabled = false
-            findViewById<TextView>(R.id.chatgpt_configuration_status).setText(failure.messageResource)
+            configurationStatus(failure.messageResource)
             return
         }
         val modelName = if (savedModel == null) getString(R.string.chatgpt_automatic_model, model.displayName) else model.displayName
@@ -223,7 +248,7 @@ class MainActivity : Activity() {
         try {
             model.selectReasoning(effort)
         } catch (failure: ChatGptFailure) {
-            findViewById<TextView>(R.id.chatgpt_configuration_status).setText(failure.messageResource)
+            configurationStatus(failure.messageResource)
         }
     }
 

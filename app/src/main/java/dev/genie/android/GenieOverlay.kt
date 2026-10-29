@@ -171,19 +171,22 @@ class GenieOverlay(private val context: Context) {
         view.findViewById<View>(R.id.speech_action).visibility = View.GONE
         view.findViewById<TextView>(R.id.chatgpt_answer).apply { text = ""; visibility = View.VISIBLE }
         var answer = ""
+        speechOutput?.beginAnswer()
         answerRequest = chatGpt.answer(history.toList() + ChatTurn("user", question), onText = { text ->
             if (popup === view) {
                 answer = text
                 view.findViewById<TextView>(R.id.chatgpt_answer).text = text
+                speechOutput?.updateAnswer(text)
             }
         }, onDone = { error ->
             if (popup === view) {
+                if (error != null) speechOutput?.stop()
                 view.findViewById<TextView>(R.id.speech_status).setText(error ?: R.string.chatgpt_answered)
                 when (error) {
                     null -> {
                         history.add(ChatTurn("user", question))
                         history.add(ChatTurn("assistant", answer))
-                        speechOutput?.speak(answer)
+                        speechOutput?.updateAnswer(answer, true)
                         action(view, R.string.speech_retry) { startListening(view) }
                     }
                     R.string.chatgpt_connect_needed, R.string.chatgpt_plan_permission_needed ->

@@ -4,7 +4,7 @@ An Android assistant with a Space-triggered overlay, speech recognition, and ans
 
 ## Spoken answers with Chirp 3 HD
 
-Genie reads completed answers with Google Cloud Chirp 3 HD. Settings include four British voices, a preview, an on/off switch, and a monthly character meter. Closing the popup or selecting **Listen again** cancels pending speech and stops playback. TensorSpeak and Inflect Nano are no longer used.
+Genie reads completed answers with Google Cloud Chirp 3 HD. Settings include all 30 British Chirp voices and four American voices, speaking speeds from 0.25× to 2×, a preview, an on/off switch, and a monthly character meter. Speed and voice choices are saved and apply to the next spoken answer. Closing the popup or selecting **Listen again** cancels pending speech and stops playback. Silent and vibrate modes block speech requests, previews, and character reservations. Entering either mode cancels pending speech and playback; that answer does not resume automatically when sound is restored. TensorSpeak and Inflect Nano are no longer used.
 
 ### Set up your project and API key
 
@@ -22,18 +22,24 @@ The meter counts characters submitted from this installation, including voice pr
 
 This is a conservative on-device estimate, not a Google billing meter or a guarantee of free usage. Other apps and projects, clearing app data or reinstalling, and Google's billing boundaries can affect actual totals. Check the Cloud console for authoritative usage. Google's published Chirp 3 HD allowance is 1 million characters per month, followed by $30 per million; a billing-enabled project is required. [Pricing](https://cloud.google.com/text-to-speech/pricing).
 
-This version sends completed answers through Google's REST synthesis endpoint, in bounded chunks for longer answers. It plays each returned MP3 in order. It does not yet use Google's bidirectional streaming API or start speech while ChatGPT is generating text. [Synthesis API](https://docs.cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize).
+Genie sends complete sentences through Google's REST synthesis endpoint while ChatGPT is still generating text. Long unpunctuated passages are split at word boundaries around 300 characters, with any remaining text flushed when the answer finishes. It plays MP3 chunks in order and prepares the next chunk during playback. Errors, dismissal, and listening again cancel queued speech. It does not yet use Google's bidirectional audio streaming API. Google supports that lower-latency path for Chirp 3 HD, but it requires a streaming transport rather than the existing REST endpoint. [Streaming guide](https://docs.cloud.google.com/text-to-speech/docs/create-audio-text-streaming). [Synthesis API](https://docs.cloud.google.com/text-to-speech/docs/reference/rest/v1/text/synthesize).
 
 ### Verification
 
-On October 29, 2026, the emulator passed 26 unit tests and instrumentation checks for month rollover, persistent cutoff enforcement, concurrent usage reservations, encrypted credential import, and key changes preserving usage. A live check using the configured Cloud Text-to-Speech key completed synthesis and MP3 playback with the default British Aoede voice, then stopped a second answer when playback began. This verifies the emulator path, not physical Titan performance or subjective voice quality.
+On October 29, 2026, the emulator passed 26 unit tests and instrumentation checks for month rollover, persistent cutoff enforcement, concurrent usage reservations, encrypted credential import, and key changes preserving usage. Live checks using the configured Cloud Text-to-Speech key completed synthesis and MP3 playback with British Aoede at normal speed and British Zephyr at 1.25×, then stopped a second answer when playback began. Voice and speed preferences persisted across settings reloads. The shortcut reconnected after successful and skipped checks; repair preserved an intentionally disabled shortcut. This verifies the emulator path, not physical Titan performance or subjective voice quality.
 
-To repeat the live check (two short billable speech requests, counted in the meter):
+To repeat the live check (a few short billable speech requests, counted in the meter):
 
 ```sh
 ./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.ChirpPlaybackCheck
-adb shell am instrument -w -e live_chirp true dev.genie.android.test/dev.genie.android.ChirpPlaybackCheck
+python3 scripts/run_android_check.py dev.genie.android.ChirpPlaybackCheck -e live_chirp true
 ```
+
+### Earlier speech and silent-mode verification
+
+The sentence queue releases readable text while the answer is still arriving and prefetches one chunk during playback. On October 29, 2026, a live US Aoede check at 1.25× started playback before the final text was supplied, with first audio at 1,383 ms from submitting the initial text. This is one emulator sample, excludes ChatGPT generation time, and is not a latency guarantee. A production-path test confirmed normal-mode submission and zero transport requests or character reservations for previews and answer updates in silent and vibrate modes. All 29 unit tests passed.
+
+Bidirectional streaming is available for Chirp 3 HD and could remove the wait for each complete MP3 response. It requires a streaming RPC transport and incremental audio playback. The current implementation instead gains earlier initiation by submitting sentences before ChatGPT finishes; it does not claim to stream Google's audio response.
 
 ## Response latency
 
@@ -45,12 +51,16 @@ To measure first answer text using the saved account and model settings (three l
 
 ```sh
 ./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.chatgpt.ResponseLatencyCheck
-adb shell am instrument -w -e live_chatgpt true dev.genie.android.test/dev.genie.android.chatgpt.ResponseLatencyCheck
+python3 scripts/run_android_check.py dev.genie.android.chatgpt.ResponseLatencyCheck -e live_chatgpt true
 ```
 
 On the emulator on October 28, 2026, GPT-6 Luna with low reasoning took 2,617 ms and 2,044 ms to first text before catalog caching, versus 1,949 ms and 1,175 ms afterward. These are two samples per version, measured after a model lookup; they show the warm path and do not measure speech recognition, physical-device speed, or guarantee future network latency.
 
 The subsequent production WebSocket path measured **718 ms, 617 ms, and 738 ms** to first text, with completed one-sentence answers at **900 ms, 800 ms, and 948 ms**. The test used the same model and low reasoning, fetched the catalog first, and allowed 1.5 seconds for connection preparation before timing each request. In normal use, preparation runs during speech input. Cold startup and network/server variability can exceed one second.
+
+## Space shortcut during development
+
+Android instrumentation stops the target app process. On the Android 16 emulator, this can leave the accessibility shortcut marked as crashed even though its setting remains enabled. Run checks with `scripts/run_android_check.py` so the connection is restored in a `finally` block, including when a check fails. `installDebug` also verifies and repairs an already-enabled connection. Both paths preserve a shortcut that the user has turned off and leave other accessibility services configured.
 
 ## Build and install
 

@@ -42,10 +42,12 @@ kotlin {
 val chirpAdb = androidComponents.sdkComponents.adb
 tasks.matching { it.name == "installDebug" }.configureEach {
     doLast {
-        val process = ProcessBuilder("python3", rootProject.file("scripts/provision_chirp.py").absolutePath, chirpAdb.get().asFile.absolutePath)
-            .directory(rootProject.projectDir).redirectErrorStream(true).start()
-        val output = process.inputStream.bufferedReader().readText()
-        check(process.waitFor() == 0) { "Chirp credential provisioning failed: $output" }
-        println(output.trim())
+        for (script in listOf("provision_chirp.py", "restore_shortcut.py")) {
+            val process = ProcessBuilder("python3", rootProject.file("scripts/$script").absolutePath, chirpAdb.get().asFile.absolutePath)
+                .directory(rootProject.projectDir).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            check(process.waitFor() == 0) { "Device setup failed: $output" }
+            println(output.trim())
+        }
     }
 }
