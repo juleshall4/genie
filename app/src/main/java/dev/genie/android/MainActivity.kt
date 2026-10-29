@@ -24,7 +24,7 @@ class MainActivity : Activity() {
     private var modelRequest: ChatGptRequest? = null
     private var modelCatalog: ChatGptModels? = null
     private var modelAccountId: String? = null
-    private var voicePreview: ChirpSpeechOutput? = null
+    private var voicePreview: VoicePreviewOutput? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,6 +58,7 @@ class MainActivity : Activity() {
                         getString(if (it in ChirpSettings.MALE_VOICES) R.string.voice_male else R.string.voice_female))
                 }.toTypedArray(),
                     ChirpSettings.VOICES.indexOf(settings.voice)) { dialog, index ->
+                    voicePreview?.stop()
                     settings.voice = ChirpSettings.VOICES[index]
                     renderSpeech()
                     dialog.dismiss()
@@ -69,6 +70,7 @@ class MainActivity : Activity() {
                 .setSingleChoiceItems(ChirpSettings.SPEAKING_RATES.map {
                     getString(R.string.read_aloud_speed_option, it)
                 }.toTypedArray(), ChirpSettings.SPEAKING_RATES.indexOf(settings.speakingRate)) { dialog, index ->
+                    voicePreview?.stop()
                     settings.speakingRate = ChirpSettings.SPEAKING_RATES[index]
                     renderSpeech()
                     dialog.dismiss()
@@ -83,10 +85,13 @@ class MainActivity : Activity() {
         }
         findViewById<Button>(R.id.read_aloud_test).setOnClickListener {
             voicePreview?.close()
-            voicePreview = ChirpSpeechOutput(this) { status ->
+            voicePreview = VoicePreviewOutput(this) { status ->
                 findViewById<TextView>(R.id.read_aloud_status).setText(status)
                 renderSpeech()
-            }.also { it.speak(getString(R.string.read_aloud_sample)) }
+            }.also {
+                val settings = ChirpSettings(this)
+                it.play(settings.voice, settings.speakingRate)
+            }
         }
     }
 

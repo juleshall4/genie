@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="read_aloud_failed">Couldn’t read this answer aloud. Check your connection and try the voice test in settings.</string>
+    <string name="read_aloud_failed">Couldn’t read this answer aloud. Check your connection and Google Cloud setup.</string>
     <string name="read_aloud_preparing">Preparing speech · Chirp 3 HD…</string>
     <string name="read_aloud_speaking">Speaking · Chirp 3 HD</string>
     <string name="read_aloud_ready">Read aloud with Chirp 3 HD</string>
@@ -15,7 +15,7 @@
     <string name="read_aloud_voice_value">Voice: %1$s</string>
     <string name="read_aloud_enabled">Read answers aloud</string>
     <string name="read_aloud_disabled">Read aloud is off.</string>
-    <string name="read_aloud_test">Try Chirp voice</string>
+    <string name="read_aloud_test">Preview voice · Offline</string>
     <string name="read_aloud_sample">Hello, I’m Genie. This is my British voice, powered by Google Chirp 3 HD.</string>
     <string name="read_aloud_help">Chirp 3 HD reads answers using Google Cloud. Answer text is sent to Google to generate speech. Internet access and your own billing-enabled Google Cloud project are required.</string>
     <string name="read_aloud_setup_needed">Add your Google Cloud API key in Genie settings to hear answers.</string>
@@ -23,13 +23,17 @@
     <string name="read_aloud_quota_failed">Google’s speech quota is unavailable. Check the quota in Google Cloud.</string>
     <string name="read_aloud_limit">Monthly Genie speech limit reached. Answers are still available as text.</string>
     <string name="read_aloud_usage_value">%1$s · %2$,d / %3$,d characters</string>
-    <string name="read_aloud_usage_help">Estimated requests from this device, including voice tests and interrupted attempts. Resets each UTC month and stops at 900,000. Other Google Cloud usage and reinstalling can affect totals.</string>
+    <string name="read_aloud_usage_help">Estimated requests from this device, including interrupted attempts. Offline previews use no characters. Resets each UTC month and stops at 900,000. Other Google Cloud usage and reinstalling can affect totals.</string>
     <string name="read_aloud_key_hint">Paste your Google Cloud API key</string>
     <string name="read_aloud_key_help">Create a Google Cloud project, enable billing and the Cloud Text-to-Speech API, then create an API key restricted to that API. Paste it here. Genie encrypts it on this device. This is separate from ChatGPT sign-in.</string>
     <string name="read_aloud_save">Save key</string>
     <string name="read_aloud_remove_key">Remove key</string>
-    <string name="read_aloud_key_saved">Key saved. Select Try Chirp voice to check your connection.</string>
+    <string name="read_aloud_key_saved">Key saved. Ask Genie a question to check spoken answers.</string>
     <string name="read_aloud_key_save_failed">Couldn’t save the key securely. Try again.</string>
+    <string name="voice_preview_preparing">Loading preview…</string>
+    <string name="voice_preview_playing">Playing preview · Offline</string>
+    <string name="voice_preview_ready">Preview finished · No usage</string>
+    <string name="voice_preview_failed">Couldn’t play this voice preview.</string>
     <string name="settings_title">Settings</string>
     <string name="settings_shortcut">Shortcut</string>
     <string name="settings_voice">Voice</string>

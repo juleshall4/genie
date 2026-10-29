@@ -4,7 +4,7 @@ An Android assistant with a Space-triggered overlay, speech recognition, and ans
 
 ## Spoken answers with Chirp 3 HD
 
-Genie reads completed answers with Google Cloud Chirp 3 HD. Settings include all 30 British Chirp voices and four American voices, speaking speeds from 0.25× to 2×, a preview, an on/off switch, and a monthly character meter. Speed and voice choices are saved and apply to the next spoken answer. Closing the popup or selecting **Listen again** cancels pending speech and stops playback. Silent and vibrate modes block speech requests, previews, and character reservations. Entering either mode cancels pending speech and playback; that answer does not resume automatically when sound is restored. TensorSpeak and Inflect Nano are no longer used.
+Genie reads answers with Google Cloud Chirp 3 HD. Settings include all 30 British Chirp voices and four American voices, speaking speeds from 0.25× to 2×, a preview, an on/off switch, and a monthly character meter. Speed and voice choices are saved and apply to the next spoken answer. Closing the popup or selecting **Listen again** cancels pending speech and stops playback. Silent and vibrate modes block speech requests, previews, and character reservations. Entering either mode cancels pending speech and playback; that answer does not resume automatically when sound is restored. TensorSpeak and Inflect Nano are no longer used.
 
 ### Set up your project and API key
 
@@ -12,13 +12,19 @@ Genie reads completed answers with Google Cloud Chirp 3 HD. Settings include all
 2. Enable billing and the [Cloud Text-to-Speech API](https://console.cloud.google.com/apis/library/texttospeech.googleapis.com).
 3. Create an API key under **APIs & Services → Credentials**, and restrict its API access to **Cloud Text-to-Speech API**.
 4. Copy `.env.example` to `.env` and set `GOOGLE_CLOUD_TTS_API_KEY`. This file is ignored by version control. Do not put a service-account JSON file in this field.
-5. Run `./gradlew installDebug`, then open Genie and select **Try Chirp voice**. The install task copies the key over adb into private debug-app storage. Genie encrypts it with Android Keystore and deletes the temporary plaintext copy on opening. The key is never added to the APK. Alternatively, enter it directly with **Set up Google Cloud API key**.
+5. Run `./gradlew installDebug`, then open Genie and ask a question to check spoken answers. The install task copies the key over adb into private debug-app storage. Genie encrypts it with Android Keystore and deletes the temporary plaintext copy on opening. The key is never added to the APK. Alternatively, enter it directly with **Google Cloud API key**.
 
 To provision a changed key without rebuilding, run `python3 scripts/provision_chirp.py /path/to/adb`, then reopen Genie. Key changes retain the existing usage count. Do not distribute your personal key in a public app; this setup is for your own device.
 
+### Offline voice previews
+
+**Preview voice · Offline** plays a packaged recording for the selected voice. All 34 samples work without an API key or internet connection and make no synthesis requests or usage reservations. The read-aloud switch does not prevent previewing voices; silent and vibrate modes still block playback. Leaving settings or selecting another voice/speed stops the current preview.
+
+The recordings use mono Ogg Opus, 24 kHz, with a 12 kbps variable-bitrate target: 316,336 bytes total (about 309 KiB), or 8–11 KB each. Android adjusts playback speed locally while preserving pitch. This approximates the selected speech speed; it is not a new cloud synthesis at that pace. Samples were generated once during development using 3,638 input characters. Their text, voice IDs, and encoding are recorded in `app/src/main/assets/voice_samples/manifest.json`. App previews never repeat that generation.
+
 ### Usage meter and limit
 
-The meter counts characters submitted from this installation, including voice previews, and stops new speech requests at **900,000 characters per UTC calendar month**. Text answers continue after the limit. Reservations are saved before network submission and are not refunded after errors or cancellation because Google may have processed those requests. The counter uses Unicode code points, including spaces and punctuation, after removing Markdown. It resets automatically for a new UTC month.
+The meter counts characters submitted from this installation, excluding offline voice previews, and stops new speech requests at **900,000 characters per UTC calendar month**. Text answers continue after the limit. Reservations are saved before network submission and are not refunded after errors or cancellation because Google may have processed those requests. The counter uses Unicode code points, including spaces and punctuation, after removing Markdown. It resets automatically for a new UTC month.
 
 This is a conservative on-device estimate, not a Google billing meter or a guarantee of free usage. Other apps and projects, clearing app data or reinstalling, and Google's billing boundaries can affect actual totals. Check the Cloud console for authoritative usage. Google's published Chirp 3 HD allowance is 1 million characters per month, followed by $30 per million; a billing-enabled project is required. [Pricing](https://cloud.google.com/text-to-speech/pricing).
 

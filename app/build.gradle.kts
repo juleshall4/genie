@@ -14,6 +14,7 @@ android {
     namespace = "dev.genie.android"
     compileSdk = 36
     buildToolsVersion = "36.0.0"
+    androidResources.noCompress += "ogg"
 
     defaultConfig {
         applicationId = "dev.genie.android"

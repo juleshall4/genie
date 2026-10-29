@@ -69,7 +69,7 @@ class ChirpSettings(context: Context) {
             preferences.edit().putFloat("speaking_rate", value).apply()
         }
 
-    // A process-wide lock covers both the overlay and the settings preview.
+    // A process-wide lock keeps concurrent speech reservations within the limit.
     fun usage(): Usage = synchronized(usageLock) {
         val month = YearMonth.now(ZoneOffset.UTC).toString()
         Usage(month, if (preferences.getString("month", "") == month) preferences.getLong("characters", 0) else 0)
