@@ -16,9 +16,11 @@ The companion engine is separately installed and licensed (GPL-3.0-or-later); In
 
 ## Response latency
 
-Genie prepares account access and the model catalog when the overlay opens, while you speak. Successful catalog results are reused for five minutes for the same account and access token. Switching accounts, signing out, and API errors invalidate the cached catalog. Settings can still explicitly refresh available models. OpenAI checks usage and model access on every answer request.
+Genie prepares account access, the model catalog, and a Responses WebSocket connection while you speak. Successful catalog results are reused for five minutes for the same account and access token. Switching accounts, signing out, and API errors invalidate the cached catalog. Settings can still explicitly refresh available models. OpenAI checks usage and model access on every answer request.
 
-To measure first answer text using the saved account and model settings (two live ChatGPT requests):
+Answers stream over the prepared connection, which closes when the popup closes or the account changes. Each request still sends its full conversation context with `store: false`. If the connection cannot open or cannot enqueue a request, Genie falls back to HTTP/SSE. It does not automatically resend an answer after submission, which avoids duplicate inference after an interrupted stream. The transport follows OpenAI's [WebSocket guide](https://developers.openai.com/api/docs/guides/websocket-mode) and [ChatGPT plan preview limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).
+
+To measure first answer text using the saved account and model settings (three live ChatGPT requests, with connection preparation excluded):
 
 ```sh
 ./gradlew installDebugAndroidTest -PgenieTestRunner=dev.genie.android.chatgpt.ResponseLatencyCheck
@@ -26,6 +28,8 @@ adb shell am instrument -w -e live_chatgpt true dev.genie.android.test/dev.genie
 ```
 
 On the emulator on October 28, 2026, GPT-6 Luna with low reasoning took 2,617 ms and 2,044 ms to first text before catalog caching, versus 1,949 ms and 1,175 ms afterward. These are two samples per version, measured after a model lookup; they show the warm path and do not measure speech recognition, physical-device speed, or guarantee future network latency.
+
+The subsequent production WebSocket path measured **718 ms, 617 ms, and 738 ms** to first text, with completed one-sentence answers at **900 ms, 800 ms, and 948 ms**. The test used the same model and low reasoning, fetched the catalog first, and allowed 1.5 seconds for connection preparation before timing each request. In normal use, preparation runs during speech input. Cold startup and network/server variability can exceed one second.
 
 ## Build and install
 

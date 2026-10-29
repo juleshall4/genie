@@ -22,6 +22,7 @@ class ChatGptRequest {
     @Volatile var cancelled = false
         private set
     @Volatile private var call: Call? = null
+    @Volatile private var cancelStream: (() -> Unit)? = null
 
     fun attach(next: Call) {
         call = next
@@ -31,6 +32,12 @@ class ChatGptRequest {
     fun cancel() {
         cancelled = true
         call?.cancel()
+        cancelStream?.invoke()
+    }
+
+    fun streamCancellation(action: (() -> Unit)?) {
+        cancelStream = action
+        if (cancelled) action?.invoke()
     }
 }
 
@@ -41,6 +48,9 @@ class ChatGptClient private constructor(context: Context) {
     val settings = ChatGptSettings(context)
     private val main = Handler(Looper.getMainLooper())
     private val modelCache = ModelCatalogCache(SystemClock::elapsedRealtime)
+    private var responseSocket: ResponseSocket? = null
+    private var socketAccount: String? = null
+    private var socketToken: String? = null
     private val worker = Executors.newSingleThreadExecutor()
     private val http = OkHttpClient.Builder().followRedirects(false).followSslRedirects(false)
         .connectTimeout(15, TimeUnit.SECONDS).readTimeout(60, TimeUnit.SECONDS)
@@ -63,6 +73,7 @@ class ChatGptClient private constructor(context: Context) {
         synchronized(stateLock) {
             requests.forEach { it.cancel() }
             modelCache.clear()
+            closeConnection()
             store.select(clientId)
         }
     }
@@ -73,6 +84,7 @@ class ChatGptClient private constructor(context: Context) {
             signIn = null
             requests.forEach { it.cancel() }
             modelCache.clear()
+            closeConnection()
             store.active()?.also {
                 // Keep the registration, but prevent further requests immediately.
                 store.save(it.copy(accessToken = "", refreshToken = "", idToken = "", expiresAt = 0))
@@ -103,6 +115,20 @@ class ChatGptClient private constructor(context: Context) {
             try {
                 if (operation.cancelled) return@execute
                 if (accountId == null) throw ChatGptFailure(R.string.chatgpt_connect_needed)
+                val (account, catalog) = catalog(accountId, operation)
+                val body = settings.selection(accountId, catalog).requestBody(turns)
+                val connection = connection(account)
+                operation.streamCancellation(connection::close)
+                val streamed = connection.answer(body) { text ->
+                    main.post { if (!operation.cancelled) onText(text) }
+                }
+                operation.streamCancellation(null)
+                if (streamed) {
+                    main.post { if (!operation.cancelled) onDone(null) }
+                    return@execute
+                }
+                closeConnection()
+                if (operation.cancelled) return@execute
                 fun openAnswer(refreshAccess: Boolean): okhttp3.Response {
                     val (account, catalog) = catalog(accountId, operation, refreshAccess = refreshAccess)
                     val body = settings.selection(accountId, catalog).requestBody(turns)
@@ -130,14 +156,43 @@ class ChatGptClient private constructor(context: Context) {
                 }
                 main.post { if (!operation.cancelled) onDone(null) }
             } catch (error: Exception) {
+                closeConnection()
                 val message = (error as? ChatGptFailure)?.messageResource ?: R.string.chatgpt_network_error
                 if (error is ChatGptFailure) modelCache.clear()
                 main.post { if (!operation.cancelled) onDone(message) }
             } finally {
+                operation.streamCancellation(null)
                 requests.remove(operation)
             }
         }
         return operation
+    }
+
+    fun prepare(): ChatGptRequest = models(refresh = false) { _, error ->
+        if (error == null) store.active()?.takeIf { it.connected }?.let { connection(it) }
+    }
+
+    @Synchronized
+    private fun connection(account: ChatGptAccount): ResponseSocket {
+        val current = responseSocket
+        if (current != null && current.usable && socketAccount == account.clientId && socketToken == account.accessToken) {
+            return current
+        }
+        closeConnection()
+        return ResponseSocket(http, Request.Builder().url("https://api.openai.com/v1/responses")
+            .header("Authorization", "Bearer ${account.accessToken}").build()).also {
+            responseSocket = it
+            socketAccount = account.clientId
+            socketToken = account.accessToken
+        }
+    }
+
+    @Synchronized
+    fun closeConnection() {
+        responseSocket?.close()
+        responseSocket = null
+        socketAccount = null
+        socketToken = null
     }
 
     fun models(refresh: Boolean = true, onDone: (ChatGptModels?, Int?) -> Unit): ChatGptRequest {

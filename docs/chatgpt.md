@@ -23,7 +23,7 @@ Genie fetches the signed-in account's model catalog. In settings, choose a model
 
 Changes apply to subsequent requests. If a saved model or reasoning level becomes unavailable, Genie asks you to choose again rather than silently substituting another model. **Refresh available models** retries catalog loading. A request requires a current catalog, so an unavailable network leaves the choices disabled until loading succeeds.
 
-Requests use the public Responses API with `store: false`, `stream: true`, and conversation context supplied explicitly. Genie reports interrupted or failed responses, including failures that arrive after partial text. Partial text is not treated as a completed answer.
+Requests use the public Responses API, preferentially over a WebSocket prepared while the user speaks. Each turn sends its conversation context explicitly with `store: false`. HTTP fallback also sets `stream: true`; that HTTP-specific flag is omitted on WebSocket messages. Genie falls back only before inference has been submitted, and closes the connection when the popup closes or the account changes. Genie reports interrupted or failed responses, including failures that arrive after partial text. Partial text is not treated as a completed answer.
 
 ## Credential storage
 

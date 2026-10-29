@@ -7,7 +7,7 @@ import android.os.SystemClock
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-/** Opt-in live measurement. Uses the saved account and settings without changing them. */
+/** Opt-in measurement of the production answer path. Does not change saved settings. */
 class ResponseLatencyCheck : Instrumentation() {
     override fun onCreate(arguments: Bundle?) {
         super.onCreate(arguments)
@@ -38,7 +38,11 @@ class ResponseLatencyCheck : Instrumentation() {
             }
             check(failure == null) { targetContext.getString(requireNotNull(failure)) }
             results.add("Model lookup: ${SystemClock.elapsedRealtime() - modelStart} ms; selection: $selected")
-            repeat(2) { run ->
+            client.prepare()
+            // Simulate time spent speaking, during which the overlay prepares its connection.
+            Thread.sleep(1500)
+            results.add("Warm connection measurement; preparation time excluded.")
+            repeat(3) { run ->
                 val done = CountDownLatch(1)
                 var firstText = -1L
                 val started = SystemClock.elapsedRealtime()
@@ -56,6 +60,6 @@ class ResponseLatencyCheck : Instrumentation() {
             finish(Activity.RESULT_OK, Bundle().apply { putString("stream", results.joinToString("\n")) })
         } catch (error: Exception) {
             finish(Activity.RESULT_CANCELED, Bundle().apply { putString("stream", (results + "FAIL: ${error.message}").joinToString("\n")) })
-        }
+        } finally { client.closeConnection() }
     }
 }

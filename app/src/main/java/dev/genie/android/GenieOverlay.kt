@@ -49,6 +49,7 @@ class GenieOverlay(private val context: Context) {
         answerRequest = null
         preparation?.cancel()
         preparation = null
+        chatGpt.closeConnection()
         history.clear()
         conversationAccount = null
         popup?.let(windowManager::removeView)
@@ -76,7 +77,6 @@ class GenieOverlay(private val context: Context) {
         }
         windowManager.addView(view, params)
         popup = view
-        preparation = chatGpt.models(refresh = false) { _, _ -> }
         speechOutput = LocalSpeechOutput(context) { status ->
             if (popup === view) view.findViewById<TextView>(R.id.read_aloud_status).apply {
                 setText(status)
@@ -102,6 +102,8 @@ class GenieOverlay(private val context: Context) {
         speechInput?.close()
         answerRequest?.cancel()
         answerRequest = null
+        preparation?.cancel()
+        preparation = chatGpt.prepare()
         view.findViewById<TextView>(R.id.chatgpt_answer).apply { text = ""; visibility = View.GONE }
         view.findViewById<View>(R.id.chatgpt_plan).visibility = View.GONE
         view.findViewById<TextView>(R.id.speech_transcript).apply {
