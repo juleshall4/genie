@@ -1,6 +1,7 @@
 package dev.genie.android
 
 import android.Manifest
+import android.animation.LayoutTransition
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -13,8 +14,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
 import android.net.Uri
-import android.transition.AutoTransition
-import android.transition.TransitionManager
+import android.view.animation.AnticipateInterpolator
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.OvershootInterpolator
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.LayoutInflater
@@ -38,6 +40,9 @@ private enum class BoxMode { Listening, Transcript, Thinking, Answer }
 
 // How far the box sits from the screen edges, in dp.
 private const val BOX_INSET = 8
+private const val ENTER_MILLIS = 320L
+private const val EXIT_MILLIS = 240L
+private const val RESIZE_MILLIS = 200L
 
 // A finished question and answer, shown in the chat log above the latest response.
 private data class LoggedTurn(val question: CharSequence, val answer: String)
@@ -69,6 +74,8 @@ class GenieOverlay(private val service: Context) {
     private var boxBlur: BoxBlur? = null
     // Puff appears in the pill, then beside the response once it arrives.
     private var pillPuff: PuffDrawable? = null
+    private var leaving = false
+    private var statusDots: CountingDots? = null
     private var answerPuff: PuffDrawable? = null
 
     val isShowing: Boolean
@@ -76,12 +83,28 @@ class GenieOverlay(private val service: Context) {
 
     /** Opens Genie, or starts listening again once it is open. */
     fun activate() {
+        if (leaving) hide()
         val view = popup ?: return show()
         if (hasMicrophonePermission()) startListening(view) else requestMicrophonePermission()
     }
 
+    /** Closes Genie, playing the entrance in reverse. */
+    fun dismiss() {
+        val view = popup ?: return
+        if (leaving) return
+        leaving = true
+        view.findViewById<View>(R.id.overlay_scrim).animate().alpha(0f).setDuration(EXIT_MILLIS)
+        view.findViewById<View>(R.id.genie_box).apply {
+            // The box drops below the bottom of the screen, however tall it is.
+            animate().translationY((view.height - top).toFloat()).setDuration(EXIT_MILLIS)
+                .setInterpolator(AnticipateInterpolator(1.2f))
+                .withEndAction { if (popup === view) hide() }
+        }
+    }
+
     fun hide() {
         generation++
+        leaving = false
         speechOutput?.close()
         speechOutput = null
         speechInput?.close()
@@ -107,13 +130,14 @@ class GenieOverlay(private val service: Context) {
         popup = null
         pillPuff = null
         answerPuff = null
+        statusDots = null
         mode = null
     }
 
     private fun show(question: String? = null) {
         generation++
         val view = LayoutInflater.from(context).inflate(R.layout.overlay_genie, null)
-        view.findViewById<View>(R.id.overlay_scrim).setOnClickListener { hide() }
+        view.findViewById<View>(R.id.overlay_scrim).setOnClickListener { dismiss() }
         view.findViewById<Button>(R.id.speech_action).setOnClickListener {
             if (hasMicrophonePermission()) startListening(view) else requestMicrophonePermission()
         }
@@ -159,6 +183,7 @@ class GenieOverlay(private val service: Context) {
         boxBlur?.follow(view.findViewById(R.id.genie_box))
         popup = view
         setMode(view, BoxMode.Listening)
+        enter(view)
         speechOutput = ChirpSpeechOutput(context) {}
         if (question != null) {
             displayTranscript(view, question)
@@ -254,15 +279,47 @@ class GenieOverlay(private val service: Context) {
     private fun setStatus(view: View, status: Int) {
         view.findViewById<TextView>(R.id.speech_status).apply {
             // Genie shows Listening while the microphone starts, so there's no separate starting message.
-            setText(if (status == R.string.speech_starting) R.string.speech_listening else status)
+            val text = context.getText(if (status == R.string.speech_starting) R.string.speech_listening else status)
+            (statusDots ?: CountingDots(this).also { statusDots = it }).setText(text)
             visibility = View.VISIBLE
         }
+    }
+
+    // The pill rises onto the screen from below while the scrim fades in. Once it's there, every
+    // container eases to its new size, whether the mode changes or the text inside it grows.
+    private fun enter(view: View) {
+        view.findViewById<View>(R.id.overlay_scrim).apply {
+            alpha = 0f
+            animate().alpha(1f).setDuration(ENTER_MILLIS)
+        }
+        view.findViewById<View>(R.id.genie_box).apply {
+            translationY = dp(120).toFloat()
+            animate().translationY(0f).setDuration(ENTER_MILLIS).setInterpolator(OvershootInterpolator(1.2f))
+        }
+        view.post {
+            for (id in listOf(R.id.overlay_root, R.id.genie_box, R.id.genie_header, R.id.genie_text,
+                R.id.conversation, R.id.history_log, R.id.answer_row)) {
+                view.findViewById<ViewGroup>(id).layoutTransition = smoothLayout()
+            }
+        }
+    }
+
+    private fun smoothLayout() = LayoutTransition().apply {
+        enableTransitionType(LayoutTransition.CHANGING)
+        setDuration(RESIZE_MILLIS)
+        for (type in listOf(LayoutTransition.CHANGING, LayoutTransition.CHANGE_APPEARING,
+            LayoutTransition.CHANGE_DISAPPEARING, LayoutTransition.APPEARING, LayoutTransition.DISAPPEARING)) {
+            setStartDelay(type, 0)
+            setInterpolator(type, DecelerateInterpolator(1.5f))
+        }
+        setStagger(LayoutTransition.CHANGING, 0)
+        setStagger(LayoutTransition.CHANGE_APPEARING, 0)
+        setStagger(LayoutTransition.CHANGE_DISAPPEARING, 0)
     }
 
     private fun setMode(view: View, next: BoxMode) {
         if (mode == next) return
         mode = next
-        TransitionManager.beginDelayedTransition(view as ViewGroup, AutoTransition().setDuration(220))
         // Only the live transcript and the response fill the width; every status is a small pill.
         val transcript = next == BoxMode.Transcript
         val answer = next == BoxMode.Answer
@@ -323,7 +380,6 @@ class GenieOverlay(private val service: Context) {
     private fun setExpanded(view: View, open: Boolean) {
         if (expanded == open) return
         expanded = open
-        TransitionManager.beginDelayedTransition(view as ViewGroup, AutoTransition().setDuration(220))
         val box = view.findViewById<LinearLayout>(R.id.genie_box)
         box.layoutParams = (box.layoutParams as FrameLayout.LayoutParams).apply {
             height = if (open) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT

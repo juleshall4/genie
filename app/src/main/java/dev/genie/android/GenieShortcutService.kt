@@ -32,7 +32,7 @@ class GenieShortcutService : AccessibilityService() {
                     }
                     overlay.isShowing && event.keyCode in dismissKeys -> {
                         capturedKeys.add(event.keyCode)
-                        mainHandler.post { overlay.hide() }
+                        mainHandler.post { overlay.dismiss() }
                         return true
                     }
                 }
