@@ -11,6 +11,11 @@ import android.os.ResultReceiver
 import android.provider.Settings
 
 class MicrophonePermissionActivity : Activity() {
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        applyOverrideConfiguration(newBase.fixedScaleConfiguration())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         if (savedInstanceState != null) return

@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -25,6 +26,11 @@ class MainActivity : Activity() {
     private var modelCatalog: ChatGptModels? = null
     private var modelAccountId: String? = null
     private var voicePreview: VoicePreviewOutput? = null
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        applyOverrideConfiguration(newBase.fixedScaleConfiguration())
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

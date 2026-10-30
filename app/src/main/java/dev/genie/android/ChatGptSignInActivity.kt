@@ -19,6 +19,11 @@ class ChatGptSignInActivity : Activity() {
     private var delivered = false
     private var welcomeShowing = false
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(newBase)
+        applyOverrideConfiguration(newBase.fixedScaleConfiguration())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val client = ChatGptClient.get(this)

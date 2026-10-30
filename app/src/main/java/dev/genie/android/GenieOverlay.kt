@@ -38,9 +38,11 @@ private enum class BoxMode { Listening, Transcript, Thinking, Answer }
 // A finished question and answer, shown in the chat log above the latest response.
 private data class LoggedTurn(val question: CharSequence, val answer: String)
 
-class GenieOverlay(private val context: Context) {
+class GenieOverlay(private val service: Context) {
+    // Views use a fixed scale; windows still come from the service, which owns the overlay's window token.
+    private val context = service.withFixedScale()
     private val answerRenderer = AnswerRenderer(context)
-    private val windowManager = context.getSystemService(WindowManager::class.java)
+    private val windowManager = service.getSystemService(WindowManager::class.java)
     private var popup: View? = null
     private var speechInput: NativeSpeechInput? = null
     private var speechOutput: ChirpSpeechOutput? = null
@@ -138,7 +140,7 @@ class GenieOverlay(private val context: Context) {
             title = context.getString(R.string.app_name)
         }
         // The blur window goes in first so it sits under the overlay.
-        boxBlur = BoxBlur(context).also { it.show() }
+        boxBlur = BoxBlur(service).also { it.show() }
         windowManager.addView(view, params)
         boxBlur?.follow(view.findViewById(R.id.genie_box))
         popup = view
