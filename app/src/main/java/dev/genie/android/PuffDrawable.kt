@@ -188,7 +188,7 @@ class PuffDrawable(fill: Int = Color.rgb(242, 242, 244), eye: Int = Color.BLACK)
                 // Small glances, so Puff stays lively while you're quiet.
                 g = 0.3f + 0.1f * sin(t * 0.8f) + 0.25f * sin(t * 0.37f)
                 gv = 0.3f
-                size = 1.1f
+                size = 0.9f
                 amp = 0.02f + 0.06f * heard
                 rate = 7f
             }
@@ -303,7 +303,7 @@ class PuffDrawable(fill: Int = Color.rgb(242, 242, 244), eye: Int = Color.BLACK)
 
     private class Pose {
         var gx = 0f; var gy = 0f; var rot = 0f; var sx = 1f; var sy = 1f; var sc = 1f; var alpha = 1f
-        var g = 0f; var gv = 0f; var size = 1f; var open = 1f; var amp = 0.02f; var rate = 2f; var blink = 1f
+        var g = 0f; var gv = 0f; var size = EYE_SIZE; var open = 1f; var amp = 0.02f; var rate = 2f; var blink = 1f
         val bs = FloatArray(5) { 1f }
 
         fun approach(to: Pose, f: Float) {
@@ -366,6 +366,8 @@ class PuffDrawable(fill: Int = Color.rgb(242, 242, 244), eye: Int = Color.BLACK)
         const val SPREAD = 14f
         const val LON_RANGE = 38f
         const val EYE_LAT = 20f
+        // Eyes are a little smaller than the head suggests; they shrink further when Puff didn't catch you.
+        const val EYE_SIZE = 0.82f
         const val LAT_RANGE = 16f
         const val CAP = 10
         const val SIDE = 3

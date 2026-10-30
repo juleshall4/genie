@@ -17,7 +17,7 @@ import kotlin.math.sin
 
 /**
  * The Genie box from the Paper design, for both the pill and the response panel. It's black with a
- * soft shade around it, a blurred halo and a thin light ring that catches the light at two corners.
+ * soft shade around it, and a thin light ring with a soft glow that catches the light at two corners.
  * The light slowly circles the box and the halo breathes. The shade and halo draw outside the
  * bounds, so the box's parent must not clip its children.
  */
@@ -36,8 +36,9 @@ class GenieBoxDrawable(private val density: Float) : Drawable() {
         maskFilter = blur(22f)
     }
     private val halo = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        alpha = (0.32f * 255).toInt()
-        maskFilter = blur(14f)
+        style = Paint.Style.STROKE
+        strokeWidth = 2 * density
+        maskFilter = blur(3f)
     }
     private val ring = Paint(Paint.ANTI_ALIAS_FLAG).apply { alpha = (0.5f * 255).toInt() }
     private val innerGlow = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -55,9 +56,10 @@ class GenieBoxDrawable(private val density: Float) : Drawable() {
         rect.set(bounds)
         val seconds = SystemClock.uptimeMillis() / 1000f
         turnLight(lightAngle + seconds * 360 / LIGHT_TURN_SECONDS)
-        halo.alpha = (255 * 0.32f * (0.85f + 0.2f * sin(seconds * 2 * PI.toFloat() / 3.2f))).toInt()
+        halo.alpha = (255 * 0.6f * (0.85f + 0.2f * sin(seconds * 2 * PI.toFloat() / 3.2f))).toInt()
         drawAround(canvas, 28 * density, 60 * density, shade)
-        drawAround(canvas, 8 * density, 40 * density, halo)
+        // The halo is a soft glow around the ring, brightest where the ring catches the light.
+        drawAround(canvas, 1.5f * density, r + 1.5f * density, halo)
         drawAround(canvas, 1.5f * density, r + 1.5f * density, ring)
         rect.set(bounds)
         canvas.drawRoundRect(rect, r, r, fill)
