@@ -1,30 +1,272 @@
-<?xml version='1.0' encoding='utf-8'?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/main_root" android:focusableInTouchMode="true" android:layout_width="match_parent" android:layout_height="match_parent" android:fillViewport="true">
-    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="24dp">
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="0dp" android:text="@string/settings_title" android:textColor="@color/ink" android:textSize="32sp" android:fontFamily="@font/inter" android:textStyle="bold" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="@string/settings_shortcut" android:textSize="20sp" android:textColor="@color/ink" android:fontFamily="@font/inter" android:textStyle="bold" />
-        <TextView android:id="@+id/shortcut_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/shortcut_disabled" android:textColor="@color/ink" android:textSize="14sp" />
-        <Button android:id="@+id/shortcut_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:minHeight="56dp" android:backgroundTint="@color/ink" android:text="@string/enable_shortcut" android:textAllCaps="false" android:textColor="@android:color/white" />
-        <Button android:id="@+id/microphone_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:minHeight="48dp" android:text="@string/enable_microphone" android:textAllCaps="false" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="@string/settings_voice" android:textSize="20sp" android:textColor="@color/ink" android:fontFamily="@font/inter" android:textStyle="bold" />
-        <Switch android:id="@+id/read_aloud_enabled" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/read_aloud_enabled" />
-        <Button android:id="@+id/read_aloud_voice" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/read_aloud_voice" android:textAllCaps="false" />
-        <Button android:id="@+id/read_aloud_speed" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/read_aloud_speed" android:textAllCaps="false" />
-        <Button android:id="@+id/read_aloud_test" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/read_aloud_test" android:textAllCaps="false" />
-        <TextView android:id="@+id/read_aloud_usage" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:textColor="@color/ink" android:textSize="16sp" />
-        <ProgressBar android:id="@+id/read_aloud_progress" style="?android:attr/progressBarStyleHorizontal" android:layout_width="match_parent" android:layout_height="wrap_content" />
-        <Button android:id="@+id/read_aloud_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/read_aloud_settings" android:textAllCaps="false" />
-        <TextView android:id="@+id/read_aloud_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:textColor="@color/muted" android:textSize="14sp" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="@string/settings_chatgpt" android:textSize="20sp" android:textColor="@color/ink" android:fontFamily="@font/inter" android:textStyle="bold" />
-        <TextView android:id="@+id/chatgpt_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="24dp" android:text="@string/chatgpt_connect_needed" android:textColor="@color/ink" android:textSize="16sp" />
-        <Button android:id="@+id/chatgpt_settings" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/chatgpt_continue" android:textAllCaps="false" />
-        <Button android:id="@+id/chatgpt_model" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/chatgpt_choose_model" android:textAllCaps="false" android:enabled="false" />
-        <Button android:id="@+id/chatgpt_reasoning" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/chatgpt_choose_reasoning" android:textAllCaps="false" android:enabled="false" />
-        <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="@string/chatgpt_personality" android:labelFor="@id/chatgpt_personality" android:textSize="16sp" android:textColor="@color/ink" />
-        <EditText android:id="@+id/chatgpt_personality" android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="textMultiLine|textCapSentences" android:gravity="top|start" android:minLines="4" android:maxLines="8" android:textSize="16sp" android:importantForAutofill="no" />
-        <Button android:id="@+id/chatgpt_reset_personality" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/chatgpt_reset_personality" android:textAllCaps="false" />
-        <TextView android:id="@+id/chatgpt_configuration_status" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:textColor="@color/muted" android:textSize="14sp" android:visibility="gone" />
-        <Button android:id="@+id/chatgpt_refresh_models" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/chatgpt_refresh_models" android:textAllCaps="false" />
-        <Button android:id="@+id/chatgpt_usage" android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="48dp" android:text="@string/chatgpt_manage_usage" android:textAllCaps="false" />
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/main_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    android:fillViewport="true"
+    android:focusableInTouchMode="true">
+    <!-- Text glow spills past each label, so nothing here clips its children. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:clipChildren="false"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingTop="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="28dp">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="4dp"
+            android:paddingTop="8dp">
+            <ImageView
+                android:id="@+id/settings_puff"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginEnd="12dp"
+                android:importantForAccessibility="no" />
+            <TextView
+                android:id="@+id/settings_title"
+                style="@style/Settings.Title"
+                android:text="@string/settings_title" />
+            <ImageButton
+                android:id="@+id/settings_close"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/settings_close"
+                android:src="@drawable/settings_close" />
+        </LinearLayout>
+
+        <TextView
+            style="@style/Settings.Section"
+            android:layout_marginTop="28dp"
+            android:text="@string/settings_shortcut" />
+        <LinearLayout
+            android:id="@+id/shortcut_card"
+            style="@style/Settings.Card">
+            <LinearLayout
+                android:id="@+id/shortcut_row"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/shortcut_service_name" />
+                <TextView
+                    android:id="@+id/shortcut_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/microphone_row"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_microphone" />
+                <TextView
+                    android:id="@+id/microphone_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <TextView
+            style="@style/Settings.Section"
+            android:text="@string/settings_voice" />
+        <LinearLayout
+            android:id="@+id/voice_card"
+            style="@style/Settings.Card">
+            <LinearLayout
+                android:id="@+id/read_aloud_row"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/read_aloud_enabled" />
+                <Switch
+                    android:id="@+id/read_aloud_enabled"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="12dp"
+                    android:contentDescription="@string/read_aloud_enabled"
+                    android:switchMinWidth="51dp"
+                    android:thumb="@drawable/settings_switch_thumb"
+                    android:track="@drawable/settings_switch_track" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/read_aloud_voice"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_voice" />
+                <TextView
+                    android:id="@+id/voice_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/read_aloud_speed"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_speed" />
+                <TextView
+                    android:id="@+id/speed_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/read_aloud_test"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_preview" />
+                <TextView
+                    style="@style/Settings.Value"
+                    android:text="@string/settings_offline" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/read_aloud_settings"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/read_aloud_settings" />
+                <TextView
+                    android:id="@+id/key_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+        </LinearLayout>
+        <ProgressBar
+            android:id="@+id/read_aloud_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginEnd="16dp"
+            android:progressDrawable="@drawable/settings_progress" />
+        <TextView
+            android:id="@+id/read_aloud_usage"
+            style="@style/Settings.Note" />
+        <TextView
+            android:id="@+id/read_aloud_status"
+            style="@style/Settings.Note"
+            android:layout_marginTop="4dp" />
+
+        <TextView
+            style="@style/Settings.Section"
+            android:text="@string/settings_chatgpt" />
+        <LinearLayout
+            android:id="@+id/chatgpt_card"
+            style="@style/Settings.Card">
+            <LinearLayout
+                android:id="@+id/chatgpt_settings"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_account" />
+                <TextView
+                    android:id="@+id/chatgpt_status"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/chatgpt_model"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_model" />
+                <TextView
+                    android:id="@+id/model_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/chatgpt_reasoning"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_reasoning" />
+                <TextView
+                    android:id="@+id/reasoning_value"
+                    style="@style/Settings.Value" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/chatgpt_refresh_models"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/chatgpt_refresh_models" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/chatgpt_usage"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/chatgpt_manage_usage" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
+        </LinearLayout>
+        <TextView
+            android:id="@+id/chatgpt_configuration_status"
+            style="@style/Settings.Note"
+            android:visibility="gone" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:clipChildren="false"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <TextView
+                style="@style/Settings.Section"
+                android:layout_width="0dp"
+                android:layout_marginTop="0dp"
+                android:layout_weight="1"
+                android:labelFor="@id/chatgpt_personality"
+                android:text="@string/chatgpt_personality" />
+            <TextView
+                android:id="@+id/chatgpt_reset_personality"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:background="?android:attr/selectableItemBackground"
+                android:contentDescription="@string/chatgpt_reset_personality"
+                android:fontFamily="@font/inter"
+                android:gravity="center"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:text="@string/settings_reset"
+                android:textColor="@color/genie_text"
+                android:textFontWeight="500"
+                android:textSize="15sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/personality_card"
+            style="@style/Settings.Card"
+            android:layout_marginTop="4dp">
+            <EditText
+                android:id="@+id/chatgpt_personality"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@null"
+                android:fontFamily="@font/inter"
+                android:gravity="top|start"
+                android:importantForAutofill="no"
+                android:inputType="textMultiLine|textCapSentences"
+                android:lineHeight="24sp"
+                android:maxLines="8"
+                android:minHeight="120dp"
+                android:padding="16dp"
+                android:textColor="@color/genie_text"
+                android:textSize="17sp" />
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

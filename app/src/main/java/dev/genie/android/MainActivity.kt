@@ -11,9 +11,11 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.net.Uri
 import android.provider.Settings
+import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.accessibility.AccessibilityManager
-import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import dev.genie.android.chatgpt.ChatGptClient
 import dev.genie.android.chatgpt.ChatGptFailure
@@ -41,19 +43,23 @@ class MainActivity : Activity() {
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
             insets
         }
+        styleScreen()
 
-        findViewById<Button>(R.id.shortcut_settings).setOnClickListener {
+        findViewById<View>(R.id.settings_close).setOnClickListener { finish() }
+        findViewById<View>(R.id.shortcut_row).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
-        findViewById<Button>(R.id.microphone_settings).setOnClickListener {
-            MicrophonePermissionActivity.launch(this)
+        findViewById<View>(R.id.microphone_row).setOnClickListener {
+            if (hasMicrophonePermission()) {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
+            } else MicrophonePermissionActivity.launch(this)
         }
-        findViewById<Button>(R.id.chatgpt_settings).setOnClickListener { manageChatGpt() }
-        findViewById<Button>(R.id.chatgpt_usage).setOnClickListener {
+        findViewById<View>(R.id.chatgpt_settings).setOnClickListener { manageChatGpt() }
+        findViewById<View>(R.id.chatgpt_usage).setOnClickListener {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://chatgpt.com/settings/usage")))
         }
-        findViewById<Button>(R.id.chatgpt_model).setOnClickListener { chooseModel() }
-        findViewById<Button>(R.id.chatgpt_reasoning).setOnClickListener { chooseReasoning() }
+        findViewById<View>(R.id.chatgpt_model).setOnClickListener { chooseModel() }
+        findViewById<View>(R.id.chatgpt_reasoning).setOnClickListener { chooseReasoning() }
         val personalitySettings = ChatGptClient.get(this).settings
         findViewById<android.widget.EditText>(R.id.chatgpt_personality).apply {
             setText(personalitySettings.personality)
@@ -66,13 +72,13 @@ class MainActivity : Activity() {
                 override fun afterTextChanged(text: android.text.Editable?) = Unit
             })
         }
-        findViewById<Button>(R.id.chatgpt_reset_personality).setOnClickListener {
+        findViewById<View>(R.id.chatgpt_reset_personality).setOnClickListener {
             findViewById<android.widget.EditText>(R.id.chatgpt_personality).setText(
                 dev.genie.android.chatgpt.ChatGptSettings.DEFAULT_PERSONALITY)
         }
-        findViewById<Button>(R.id.chatgpt_refresh_models).setOnClickListener { loadModels() }
-        findViewById<Button>(R.id.read_aloud_settings).setOnClickListener { configureSpeech() }
-        findViewById<Button>(R.id.read_aloud_voice).setOnClickListener {
+        findViewById<View>(R.id.chatgpt_refresh_models).setOnClickListener { loadModels() }
+        findViewById<View>(R.id.read_aloud_settings).setOnClickListener { configureSpeech() }
+        findViewById<View>(R.id.read_aloud_voice).setOnClickListener {
             val settings = ChirpSettings(this)
             AlertDialog.Builder(this).setTitle(R.string.read_aloud_voice)
                 .setSingleChoiceItems(ChirpSettings.VOICES.map {
@@ -86,7 +92,7 @@ class MainActivity : Activity() {
                     dialog.dismiss()
                 }.setNegativeButton(android.R.string.cancel, null).show()
         }
-        findViewById<Button>(R.id.read_aloud_speed).setOnClickListener {
+        findViewById<View>(R.id.read_aloud_speed).setOnClickListener {
             val settings = ChirpSettings(this)
             AlertDialog.Builder(this).setTitle(R.string.read_aloud_speed)
                 .setSingleChoiceItems(ChirpSettings.SPEAKING_RATES.map {
@@ -98,14 +104,15 @@ class MainActivity : Activity() {
                     dialog.dismiss()
                 }.setNegativeButton(android.R.string.cancel, null).show()
         }
-        findViewById<android.widget.Switch>(R.id.read_aloud_enabled).apply {
+        val readAloud = findViewById<android.widget.Switch>(R.id.read_aloud_enabled).apply {
             isChecked = ChirpSettings(this@MainActivity).enabled
             setOnCheckedChangeListener { _, enabled ->
                 ChirpSettings(this@MainActivity).enabled = enabled
                 if (!enabled) voicePreview?.stop()
             }
         }
-        findViewById<Button>(R.id.read_aloud_test).setOnClickListener {
+        findViewById<View>(R.id.read_aloud_row).setOnClickListener { readAloud.toggle() }
+        findViewById<View>(R.id.read_aloud_test).setOnClickListener {
             voicePreview?.close()
             voicePreview = VoicePreviewOutput(this) { status ->
                 findViewById<TextView>(R.id.read_aloud_status).setText(status)
@@ -129,19 +136,9 @@ class MainActivity : Activity() {
             ComponentName(info.packageName, info.name) == component
         }
 
-        findViewById<TextView>(R.id.shortcut_status).setText(
-            if (enabled) R.string.shortcut_enabled else R.string.shortcut_disabled
-        )
-        findViewById<Button>(R.id.shortcut_settings).setText(
-            if (enabled) R.string.manage_shortcut else R.string.enable_shortcut
-        )
-        findViewById<Button>(R.id.microphone_settings).apply {
-            visibility = if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-                android.view.View.GONE
-            } else {
-                android.view.View.VISIBLE
-            }
-        }
+        findViewById<TextView>(R.id.shortcut_value).setText(if (enabled) R.string.settings_on else R.string.settings_off)
+        findViewById<TextView>(R.id.microphone_value).setText(
+            if (hasMicrophonePermission()) R.string.settings_allowed else R.string.settings_not_allowed)
         renderChatGpt()
         renderSpeech()
     }
@@ -155,10 +152,33 @@ class MainActivity : Activity() {
             max = ChirpSettings.MONTHLY_LIMIT.toInt()
             progress = usage.characters.coerceAtMost(ChirpSettings.MONTHLY_LIMIT).toInt()
         }
-        findViewById<Button>(R.id.read_aloud_speed).text = getString(
-            R.string.read_aloud_speed_value, settings.speakingRate)
-        findViewById<Button>(R.id.read_aloud_voice).text = getString(
-            R.string.read_aloud_voice_value, voiceLabel(settings.voice))
+        findViewById<TextView>(R.id.speed_value).text = getString(R.string.read_aloud_speed_option, settings.speakingRate)
+        findViewById<TextView>(R.id.voice_value).text = voiceLabel(settings.voice)
+        findViewById<TextView>(R.id.key_value).setText(
+            if (settings.apiKey.isBlank()) R.string.settings_not_set else R.string.settings_saved)
+    }
+
+    private fun hasMicrophonePermission() =
+        checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    // The screen matches the overlay: Puff on black, and softly glowing text.
+    private fun styleScreen() {
+        findViewById<ImageView>(R.id.settings_puff).setImageDrawable(PuffDrawable().apply { state = PuffState.Idle })
+        glowText(findViewById(R.id.main_root))
+        // The big title glows like grey text, so it doesn't bloom.
+        findViewById<TextView>(R.id.settings_title).glow(bright = false)
+    }
+
+    private fun glowText(view: View) {
+        if (view is TextView) view.glow(bright = view.currentTextColor == getColor(R.color.genie_text))
+        if (view is ViewGroup) for (i in 0 until view.childCount) glowText(view.getChildAt(i))
+    }
+
+    private fun setRowEnabled(id: Int, enabled: Boolean) {
+        findViewById<View>(id).apply {
+            isEnabled = enabled
+            alpha = if (enabled) 1f else 0.4f
+        }
     }
 
     private fun voiceLabel(voice: String): String = getString(
@@ -186,6 +206,7 @@ class MainActivity : Activity() {
                 voicePreview?.stop()
                 ChirpSettings(this).apiKey = ""
                 findViewById<TextView>(R.id.read_aloud_status).setText(R.string.read_aloud_setup_needed)
+                renderSpeech()
             }.setNegativeButton(android.R.string.cancel, null).create()
         dialog.window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         dialog.setOnShowListener {
@@ -197,6 +218,7 @@ class MainActivity : Activity() {
                     try {
                         ChirpSettings(this).apiKey = key
                         findViewById<TextView>(R.id.read_aloud_status).setText(R.string.read_aloud_key_saved)
+                        renderSpeech()
                         dialog.dismiss()
                     } catch (_: Exception) {
                         input.error = getString(R.string.read_aloud_key_save_failed)
@@ -210,11 +232,8 @@ class MainActivity : Activity() {
     private fun renderChatGpt() {
         val account = ChatGptClient.get(this).store.active()
         findViewById<TextView>(R.id.chatgpt_status).text = if (account?.connected == true) {
-            getString(R.string.chatgpt_account_connected, account.email.ifBlank { getString(R.string.chatgpt_account) })
-        } else getString(R.string.chatgpt_connect_needed)
-        findViewById<Button>(R.id.chatgpt_settings).setText(
-            if (account?.connected == true) R.string.chatgpt_manage_accounts else R.string.chatgpt_continue
-        )
+            account.email.ifBlank { getString(R.string.chatgpt_account) }
+        } else getString(R.string.settings_not_connected)
         loadModels()
     }
 
@@ -232,15 +251,11 @@ class MainActivity : Activity() {
         val client = ChatGptClient.get(this)
         val account = client.store.active()?.takeIf { it.connected }
         modelAccountId = account?.clientId
-        findViewById<Button>(R.id.chatgpt_model).apply {
-            isEnabled = false
-            setText(R.string.chatgpt_choose_model)
-        }
-        findViewById<Button>(R.id.chatgpt_reasoning).apply {
-            isEnabled = false
-            setText(R.string.chatgpt_choose_reasoning)
-        }
-        findViewById<Button>(R.id.chatgpt_refresh_models).isEnabled = account != null
+        setRowEnabled(R.id.chatgpt_model, false)
+        setRowEnabled(R.id.chatgpt_reasoning, false)
+        findViewById<TextView>(R.id.model_value).text = ""
+        findViewById<TextView>(R.id.reasoning_value).text = ""
+        setRowEnabled(R.id.chatgpt_refresh_models, account != null)
         configurationStatus(if (account == null) null else R.string.chatgpt_loading_models)
         if (account == null) return
         modelRequest = client.models { catalog, error ->
@@ -257,23 +272,22 @@ class MainActivity : Activity() {
         val account = modelAccountId ?: return
         val settings = ChatGptClient.get(this).settings
         val savedModel = settings.model(account)
-        findViewById<Button>(R.id.chatgpt_model).isEnabled = catalog.models.isNotEmpty()
+        setRowEnabled(R.id.chatgpt_model, catalog.models.isNotEmpty())
         configurationStatus(null)
         val model = try {
             catalog.selectModel(savedModel)
         } catch (failure: ChatGptFailure) {
-            findViewById<Button>(R.id.chatgpt_model).setText(R.string.chatgpt_model_unavailable)
-            findViewById<Button>(R.id.chatgpt_reasoning).isEnabled = false
+            findViewById<TextView>(R.id.model_value).setText(R.string.settings_unavailable)
+            setRowEnabled(R.id.chatgpt_reasoning, false)
             configurationStatus(failure.messageResource)
             return
         }
-        val modelName = if (savedModel == null) getString(R.string.chatgpt_automatic_model, model.displayName) else model.displayName
-        findViewById<Button>(R.id.chatgpt_model).text = getString(R.string.chatgpt_model_value, modelName)
+        findViewById<TextView>(R.id.model_value).text =
+            if (savedModel == null) getString(R.string.chatgpt_automatic_model, model.displayName) else model.displayName
         val effort = settings.reasoning(account, model.slug)
-        findViewById<Button>(R.id.chatgpt_reasoning).apply {
-            isEnabled = model.reasoningLevels.isNotEmpty() || effort != null
-            text = getString(R.string.chatgpt_reasoning_value, if (effort == null) defaultReasoning(model.preferredEffort) else effortLabel(effort))
-        }
+        setRowEnabled(R.id.chatgpt_reasoning, model.reasoningLevels.isNotEmpty() || effort != null)
+        findViewById<TextView>(R.id.reasoning_value).text =
+            if (effort == null) defaultReasoning(model.preferredEffort) else effortLabel(effort)
         try {
             model.selectReasoning(effort)
         } catch (failure: ChatGptFailure) {

@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="page">#F5F4EF</color>
-    <color name="ink">#203E35</color>
-    <color name="muted">#5B6860</color>
-    <color name="accent">#D4EFAD</color>
     <color name="genie_card_stroke">#1FFFFFFF</color>
     <color name="genie_surface">#1C1C1E</color>
+    <color name="genie_control">#2C2C2E</color>
     <color name="genie_text">#FFFFFF</color>
     <color name="genie_muted">#8E8E93</color>
+    <color name="genie_faint">#5A5A5E</color>
+    <color name="puff">#F2F2F4</color>
 </resources>

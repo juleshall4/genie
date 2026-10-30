@@ -1,15 +1,108 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Genie" parent="android:style/Theme.Material.Light.NoActionBar">
+    <style name="Theme.Genie" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">@font/inter</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowLightNavigationBar">true</item>
-        <item name="android:windowBackground">@color/page</item>
-        <item name="android:colorAccent">@color/ink</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:colorBackground">@android:color/black</item>
+        <item name="android:colorAccent">@color/puff</item>
+        <item name="android:textColorPrimary">@color/genie_text</item>
+        <item name="android:textColorSecondary">@color/genie_muted</item>
     </style>
     <style name="Theme.Genie.Permission" parent="Theme.Genie">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
+    <!-- Settings, styled like the overlay: black, plain rows, Inter with a soft glow. -->
+    <style name="Settings" />
+    <style name="Settings.Title">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="android:textFontWeight">600</item>
+        <item name="android:textSize">30sp</item>
+        <item name="android:lineHeight">36sp</item>
+        <item name="android:letterSpacing">-0.02</item>
+        <item name="android:textColor">@color/genie_text</item>
+    </style>
+    <style name="Settings.Section">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">24dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineHeight">18sp</item>
+        <item name="android:letterSpacing">0.04</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">@color/genie_muted</item>
+    </style>
+    <style name="Settings.Card">
+        <item name="android:clipChildren">false</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+    <style name="Settings.Row">
+        <item name="android:clipChildren">false</item>
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:background">?android:attr/selectableItemBackground</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+    </style>
+    <style name="Settings.Label">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:lineHeight">22sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textColor">@color/genie_text</item>
+    </style>
+    <style name="Settings.Value">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginStart">12dp</item>
+        <item name="android:maxWidth">200dp</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:lineHeight">22sp</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">middle</item>
+        <item name="android:textColor">@color/genie_muted</item>
+    </style>
+    <style name="Settings.Chevron">
+        <item name="android:layout_width">12dp</item>
+        <item name="android:layout_height">14dp</item>
+        <item name="android:layout_marginStart">12dp</item>
+        <item name="android:scaleType">fitEnd</item>
+        <item name="android:src">@drawable/settings_chevron</item>
+        <item name="android:importantForAccessibility">no</item>
+    </style>
+    <style name="Settings.Note">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:fontFamily">@font/inter</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:lineHeight">18sp</item>
+        <item name="android:textColor">@color/genie_muted</item>
     </style>
 </resources>
