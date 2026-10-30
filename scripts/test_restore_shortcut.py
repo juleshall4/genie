@@ -10,8 +10,17 @@ def state(bound="", enabled="", binding="", crashed=""):
 
 
 class ShortcutRecoveryTest(unittest.TestCase):
+    def test_connected_service_on_second_line_is_healthy(self):
+        output = state(
+            bound="Service[label=Rotation Control],\n                     Service[label=Genie shortcut]",
+            enabled="{example/.Reader}, {" + shortcut.COMPONENT + "}",
+        )
+        with patch.object(shortcut, "shell", return_value=output):
+            self.assertTrue(shortcut.connected("adb", "phone"))
+            self.assertFalse(shortcut.detached("adb", "phone"))
+
     def test_bound_but_crashed_service_is_not_healthy(self):
-        output = state(bound="Service[label=Genie Space shortcut]", crashed=shortcut.COMPONENT)
+        output = state(bound="Service[label=Genie shortcut]", crashed=shortcut.COMPONENT)
         with patch.object(shortcut, "shell", return_value=output):
             self.assertFalse(shortcut.connected("adb", "emulator"))
 
@@ -32,7 +41,7 @@ class ShortcutRecoveryTest(unittest.TestCase):
                     polls += 1
                     detached = polls >= 3
                     return state(enabled="example/.Reader", binding="" if detached else shortcut.COMPONENT)
-                return state(bound="Service[label=Genie Space shortcut]", enabled=original)
+                return state(bound="Service[label=Genie shortcut]", enabled=original)
             if args[:4] == ("settings", "put", "secure", "enabled_accessibility_services"):
                 if args[4] == original:
                     self.assertTrue(detached, "Re-enabled the shortcut while its previous binding was still present")

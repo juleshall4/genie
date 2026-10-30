@@ -1,6 +1,17 @@
 # Genie
 
-An Android assistant with a Space-triggered overlay, speech recognition, and answers through your connected ChatGPT account.
+An Android assistant with an action-button overlay, speech recognition, and answers through your connected ChatGPT account.
+
+## Titan 2 action button
+
+1. Install the debug build with `./gradlew installDebug`.
+2. Enable **Genie shortcut** in Android Accessibility settings.
+3. In the Titan's programmable button settings, assign a single press to **Activate Genie**. Keep **Genie** as the settings entry point.
+4. Open another app and press the action button. Genie opens and starts listening. Press again to start a new voice input. Tap outside Genie or press Back to dismiss it.
+
+ADB captured the Titan 2 button as scan code `249` (`0xF9`) on `mtk-pmic-keys`. The firmware handles this code through its programmable button settings, so Genie uses a dedicated activity rather than intercepting the raw key. The single-press assignment uses system settings `func1_short_press_package=dev.genie.android` and `func1_short_press_activity=dev.genie.android.ActivateGenieActivity`.
+
+The physical keyboard's Space key types normally. Android emulators using `ranchu` or `goldfish` hardware retain the Space activation shortcut.
 
 ## Personality and model defaults
 

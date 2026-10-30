@@ -12,18 +12,27 @@ def shell(adb, serial, *args):
 
 
 def section(state, name):
-    return state.partition(name + ":")[2].split("\n", 1)[0]
+    content = state.partition(name + ":")[2].lstrip()
+    depth = 0
+    for index, character in enumerate(content):
+        if character == "{":
+            depth += 1
+        elif character == "}":
+            depth -= 1
+            if depth == 0:
+                return content[:index + 1]
+    return content.split("\n", 1)[0]
 
 
 def connected(adb, serial):
     state = shell(adb, serial, "dumpsys", "accessibility")
-    return ("Genie Space shortcut" in section(state, "Bound services")
+    return ("Genie shortcut" in section(state, "Bound services")
             and COMPONENT not in section(state, "Crashed services"))
 
 
 def detached(adb, serial):
     state = shell(adb, serial, "dumpsys", "accessibility")
-    return ("Genie Space shortcut" not in section(state, "Bound services")
+    return ("Genie shortcut" not in section(state, "Bound services")
             and all(COMPONENT not in section(state, name)
                     for name in ("Enabled services", "Binding services", "Crashed services")))
 
@@ -32,7 +41,7 @@ def restore(adb, serial):
     enabled = shell(adb, serial, "settings", "get", "secure", "enabled_accessibility_services")
     services = enabled.split(":") if enabled not in ("null", "") else []
     if COMPONENT not in services:
-        print("Space shortcut is off; leaving it off.")
+        print("Genie shortcut is off; leaving it off.")
         return
     for _ in range(3):
         if not connected(adb, serial):
@@ -45,7 +54,7 @@ def restore(adb, serial):
                 deadline = time.monotonic() + 5
                 while not detached(adb, serial):
                     if time.monotonic() >= deadline:
-                        raise RuntimeError("Space shortcut did not fully disconnect")
+                        raise RuntimeError("Genie shortcut did not fully disconnect")
                     time.sleep(0.1)
             finally:
                 shell(adb, serial, "settings", "put", "secure", "enabled_accessibility_services", enabled)
@@ -56,14 +65,14 @@ def restore(adb, serial):
                 # Package replacement can report the old binding before its binder dies.
                 time.sleep(0.5)
                 if connected(adb, serial):
-                    print("Space shortcut is connected.")
+                    print("Genie shortcut is connected.")
                     return
                 break
             state = shell(adb, serial, "dumpsys", "accessibility")
             if COMPONENT in section(state, "Crashed services"):
                 break
             time.sleep(0.1)
-    raise RuntimeError("Space shortcut did not reconnect")
+    raise RuntimeError("Genie shortcut did not reconnect")
 
 
 def devices(adb):

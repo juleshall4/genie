@@ -63,8 +63,10 @@ class GenieOverlay(private val context: Context) {
     val isShowing: Boolean
         get() = popup != null
 
-    fun toggle() {
-        if (isShowing) hide() else show()
+    /** Opens Genie, or starts listening again once it is open. */
+    fun activate() {
+        val view = popup ?: return show()
+        if (hasMicrophonePermission()) startListening(view) else requestMicrophonePermission()
     }
 
     fun hide() {

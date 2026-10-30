@@ -3,6 +3,7 @@ package dev.genie.android
 import android.accessibilityservice.AccessibilityService
 import android.os.Handler
 import android.os.Looper
+import android.os.Build
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
 
@@ -13,6 +14,7 @@ class GenieShortcutService : AccessibilityService() {
 
     override fun onServiceConnected() {
         overlay = GenieOverlay(this)
+        connectedService = this
     }
 
     override fun onKeyEvent(event: KeyEvent): Boolean {
@@ -23,9 +25,9 @@ class GenieShortcutService : AccessibilityService() {
                 if (event.repeatCount > 0) return event.keyCode in capturedKeys
 
                 when {
-                    event.keyCode == KeyEvent.KEYCODE_SPACE && event.hasNoModifiers() && !editingPersonality -> {
+                    emulatorSpaceShortcut && event.keyCode == KeyEvent.KEYCODE_SPACE && event.hasNoModifiers() && !editingPersonality -> {
                         capturedKeys.add(event.keyCode)
-                        mainHandler.post { overlay.toggle() }
+                        mainHandler.post { overlay.activate() }
                         return true
                     }
                     overlay.isShowing && event.keyCode in dismissKeys -> {
@@ -49,6 +51,7 @@ class GenieShortcutService : AccessibilityService() {
     }
 
     override fun onUnbind(intent: android.content.Intent?): Boolean {
+        if (connectedService === this) connectedService = null
         mainHandler.removeCallbacksAndMessages(null)
         if (::overlay.isInitialized) overlay.hide()
         capturedKeys.clear()
@@ -56,13 +59,22 @@ class GenieShortcutService : AccessibilityService() {
     }
 
     override fun onDestroy() {
+        if (connectedService === this) connectedService = null
         mainHandler.removeCallbacksAndMessages(null)
         if (::overlay.isInitialized) overlay.hide()
         super.onDestroy()
     }
 
     companion object {
+        private var connectedService: GenieShortcutService? = null
+        private val emulatorSpaceShortcut = Build.HARDWARE in setOf("ranchu", "goldfish")
         @Volatile var editingPersonality = false
         private val dismissKeys = setOf(KeyEvent.KEYCODE_ESCAPE, KeyEvent.KEYCODE_BACK)
+
+        fun requestActivation(): Boolean {
+            val service = connectedService ?: return false
+            service.mainHandler.post { service.overlay.activate() }
+            return true
+        }
     }
 }
