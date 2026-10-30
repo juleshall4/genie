@@ -42,6 +42,8 @@ private enum class BoxMode { Listening, Transcript, Thinking, Answer }
 private const val BOX_INSET = 8
 private const val ENTER_MILLIS = 320L
 private const val EXIT_MILLIS = 240L
+// How long your final words stay on screen before Genie starts thinking.
+private const val FINAL_WORDS_MILLIS = 450L
 private const val RESIZE_MILLIS = 200L
 
 // A finished question and answer, shown in the chat log above the latest response.
@@ -76,6 +78,7 @@ class GenieOverlay(private val service: Context) {
     private var pillPuff: PuffDrawable? = null
     private var leaving = false
     private var statusDots: CountingDots? = null
+    private var pendingSend: Runnable? = null
     private var answerPuff: PuffDrawable? = null
 
     val isShowing: Boolean
@@ -199,6 +202,8 @@ class GenieOverlay(private val service: Context) {
         context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
     private fun startListening(view: View) {
+        pendingSend?.let(view::removeCallbacks)
+        pendingSend = null
         speechOutput?.stop()
         if (expanded) setExpanded(view, false)
         linkCard?.clear()
@@ -232,7 +237,13 @@ class GenieOverlay(private val service: Context) {
                 if (finished && !hasMicrophonePermission()) action(view, R.string.enable_microphone) { requestMicrophonePermission() }
             }
         }, onFinalTranscript = { question ->
-            if (popup === view) sendTranscript(view, question)
+            // The last words often only arrive with the final result, so they stay up a moment first.
+            if (popup === view) {
+                pendingSend = Runnable {
+                    pendingSend = null
+                    if (popup === view) sendTranscript(view, question)
+                }.also { view.postDelayed(it, FINAL_WORDS_MILLIS) }
+            }
         }, onLevel = { rmsdB ->
             pillPuff?.level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
         }).also { it.start() }
@@ -332,6 +343,8 @@ class GenieOverlay(private val service: Context) {
         (box.background as GenieBoxDrawable).apply {
             cornerRadius = boxCorner()
             lightAngle = if (transcript) 30f else 0f
+            // A glow says Genie is listening or working; an answer just gets an outline.
+            glow = !answer
         }
         // The handle only appears once there are earlier turns to scroll back to.
         val handle = answer && log.isNotEmpty()
@@ -339,6 +352,8 @@ class GenieOverlay(private val service: Context) {
         view.findViewById<View>(R.id.genie_header).visibility = if (answer) View.GONE else View.VISIBLE
         if (answer) box.setPadding(dp(16), dp(if (handle) 8 else 16), dp(16), dp(16))
         else box.setPadding(dp(13), dp(8), dp(24), dp(8))
+        // The response scrolls inside the box's padding; the pill lets Puff's animations spill past it.
+        box.clipToPadding = answer
         view.findViewById<View>(R.id.genie_text).apply {
             layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
                 width = if (wide) 0 else ViewGroup.LayoutParams.WRAP_CONTENT
@@ -456,10 +471,11 @@ class GenieOverlay(private val service: Context) {
         glow(answer, bright = focused)
     }
 
-    // All Genie text glows softly, like CSS text-shadow 0 0 10px: white text at 35%, grey text at 15%.
+    // All Genie text glows, like CSS text-shadow 0 0 12px: white text at 80%, grey text at 48%.
+    // Thin strokes spread little light, so anything weaker barely shows on the black box.
     private fun glow(text: TextView, bright: Boolean) {
-        val radius = (5 * context.resources.displayMetrics.density - 0.5f) / 0.57735f
-        text.setShadowLayer(radius, 0f, 0f, Color.argb(if (bright) 0x59 else 0x26, 255, 255, 255))
+        val radius = (6 * context.resources.displayMetrics.density - 0.5f) / 0.57735f
+        text.setShadowLayer(radius, 0f, 0f, Color.argb(if (bright) 0xCC else 0x7A, 255, 255, 255))
     }
 
     private fun answers(view: View): List<TextView> {

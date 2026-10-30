@@ -17,9 +17,9 @@ import kotlin.math.sin
 
 /**
  * The Genie box from the Paper design, for both the pill and the response panel. It's black with a
- * soft shade around it, and a thin light ring with a soft glow that catches the light at two corners.
- * The light slowly circles the box and the halo breathes. The shade and halo draw outside the
- * bounds, so the box's parent must not clip its children.
+ * soft shade around it, and a thin light ring that catches the light at two corners. While it glows,
+ * the ring has a soft halo that breathes and the light slowly circles the box. The shade and halo
+ * draw outside the bounds, so the box's parent must not clip its children.
  */
 class GenieBoxDrawable(private val density: Float) : Drawable() {
     var cornerRadius = 28 * density
@@ -27,6 +27,10 @@ class GenieBoxDrawable(private val density: Float) : Drawable() {
 
     /** Where the ring's brightest light starts, in degrees clockwise from the top. */
     var lightAngle = 0f
+        set(value) { field = value; invalidateSelf() }
+
+    /** Whether the box glows. Without it, the box keeps a still outline, so it reads as content, not activity. */
+    var glow = true
         set(value) { field = value; invalidateSelf() }
 
     private val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.BLACK }
@@ -55,14 +59,15 @@ class GenieBoxDrawable(private val density: Float) : Drawable() {
         val r = cornerRadius
         rect.set(bounds)
         val seconds = SystemClock.uptimeMillis() / 1000f
-        turnLight(lightAngle + seconds * 360 / LIGHT_TURN_SECONDS)
+        turnLight(if (glow) lightAngle + seconds * 360 / LIGHT_TURN_SECONDS else lightAngle)
         halo.alpha = (255 * 0.6f * (0.85f + 0.2f * sin(seconds * 2 * PI.toFloat() / 3.2f))).toInt()
         drawAround(canvas, 28 * density, 60 * density, shade)
         // The halo is a soft glow around the ring, brightest where the ring catches the light.
-        drawAround(canvas, 1.5f * density, r + 1.5f * density, halo)
+        if (glow) drawAround(canvas, 1.5f * density, r + 1.5f * density, halo)
         drawAround(canvas, 1.5f * density, r + 1.5f * density, ring)
         rect.set(bounds)
         canvas.drawRoundRect(rect, r, r, fill)
+        if (!glow) return
         // A faint light just inside the edge, like an inset shadow.
         clip.rewind()
         clip.addRoundRect(rect, r, r, Path.Direction.CW)
