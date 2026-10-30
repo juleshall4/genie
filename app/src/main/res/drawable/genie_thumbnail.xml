@@ -8,13 +8,13 @@
                 android:centerY="0.55"
                 android:centerColor="#4A2C7A"
                 android:endColor="#E07A8C" />
-            <corners android:radius="14dp" />
+            <corners android:radius="8dp" />
         </shape>
     </item>
     <item android:gravity="bottom" android:height="16dp">
         <shape>
             <solid android:color="#0D0A1F" />
-            <corners android:bottomLeftRadius="14dp" android:bottomRightRadius="14dp" />
+            <corners android:bottomLeftRadius="8dp" android:bottomRightRadius="8dp" />
         </shape>
     </item>
     <item android:left="10dp" android:top="9dp" android:width="2dp" android:height="2dp" android:gravity="top|start">

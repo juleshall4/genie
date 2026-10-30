@@ -1,13 +1,13 @@
 package dev.genie.android
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -20,11 +20,12 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.RoundedCorner
 import android.view.WindowInsets
 import android.view.WindowManager
-import android.webkit.WebView
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import dev.genie.android.chatgpt.ChatGptClient
@@ -34,6 +35,9 @@ import dev.genie.android.chatgpt.ChatTurn
 // The box starts as a small listening pill, widens for the live transcript and
 // thinking, then grows into the response box.
 private enum class BoxMode { Listening, Transcript, Thinking, Answer }
+
+// How far the box sits from the screen edges, in dp.
+private const val BOX_INSET = 8
 
 // A finished question and answer, shown in the chat log above the latest response.
 private data class LoggedTurn(val question: CharSequence, val answer: String)
@@ -59,8 +63,13 @@ class GenieOverlay(private val service: Context) {
     private var expanded = false
     private var focusedAnswer: TextView? = null
     private var topInset = 0
+    private var bottomInset = 0
+    private var displayCorner = 0
     private var linkCard: LinkCard? = null
     private var boxBlur: BoxBlur? = null
+    // Puff appears in the pill, then beside the response once it arrives.
+    private var pillPuff: PuffDrawable? = null
+    private var answerPuff: PuffDrawable? = null
 
     val isShowing: Boolean
         get() = popup != null
@@ -94,11 +103,10 @@ class GenieOverlay(private val service: Context) {
         linkCard = null
         boxBlur?.dismiss()
         boxBlur = null
-        popup?.let {
-            windowManager.removeView(it)
-            it.findViewById<WebView>(R.id.orb).destroy()
-        }
+        popup?.let { windowManager.removeView(it) }
         popup = null
+        pillPuff = null
+        answerPuff = null
         mode = null
     }
 
@@ -109,7 +117,6 @@ class GenieOverlay(private val service: Context) {
         view.findViewById<Button>(R.id.speech_action).setOnClickListener {
             if (hasMicrophonePermission()) startListening(view) else requestMicrophonePermission()
         }
-        view.findViewById<View>(R.id.chatgpt_plan).setOnClickListener { manageUsage() }
         linkCard = LinkCard(view.findViewById(R.id.link_card)) { url ->
             hide()
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -121,14 +128,21 @@ class GenieOverlay(private val service: Context) {
             setOnScrollChangeListener { _, _, _, _, _ -> if (expanded) focusNearestAnswer(view) }
         }
         view.setOnApplyWindowInsetsListener { _, insets ->
-            val bottom = insets.getInsets(WindowInsets.Type.systemBars()).bottom
+            bottomInset = insets.getInsets(WindowInsets.Type.systemBars()).bottom
             topInset = insets.getInsets(WindowInsets.Type.systemBars()).top
-            view.findViewById<View>(R.id.genie_box).apply {
-                layoutParams = (layoutParams as FrameLayout.LayoutParams).apply { bottomMargin = dp(8) + bottom }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                displayCorner = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)?.radius ?: 0
             }
+            placeBox(view)
+            (view.findViewById<View>(R.id.genie_box).background as GenieBoxDrawable).cornerRadius = boxCorner()
             insets
         }
-        showOrb(view)
+        view.findViewById<View>(R.id.overlay_scrim).background = scrim()
+        view.findViewById<View>(R.id.genie_box).background = GenieBoxDrawable(context.resources.displayMetrics.density)
+        pillPuff = PuffDrawable().also { view.findViewById<ImageView>(R.id.puff).setImageDrawable(it) }
+        answerPuff = PuffDrawable().also { view.findViewById<ImageView>(R.id.answer_puff).setImageDrawable(it) }
+        for (id in listOf(R.id.speech_status, R.id.speech_transcript, R.id.chatgpt_answer, R.id.link_title)) glow(view.findViewById(id), bright = true)
+        for (id in listOf(R.id.current_question, R.id.link_domain, R.id.link_description)) glow(view.findViewById(id), bright = false)
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -145,12 +159,7 @@ class GenieOverlay(private val service: Context) {
         boxBlur?.follow(view.findViewById(R.id.genie_box))
         popup = view
         setMode(view, BoxMode.Listening)
-        speechOutput = ChirpSpeechOutput(context) { status ->
-            if (popup === view) view.findViewById<TextView>(R.id.read_aloud_status).apply {
-                setText(status)
-                visibility = View.VISIBLE
-            }
-        }
+        speechOutput = ChirpSpeechOutput(context) {}
         if (question != null) {
             displayTranscript(view, question)
             sendTranscript(view, question)
@@ -168,7 +177,7 @@ class GenieOverlay(private val service: Context) {
         speechOutput?.stop()
         if (expanded) setExpanded(view, false)
         linkCard?.clear()
-        view.findViewById<View>(R.id.read_aloud_status).visibility = View.GONE
+        view.findViewById<View>(R.id.speech_action).visibility = View.GONE
         speechInput?.close()
         answerRequest?.cancel()
         answerRequest = null
@@ -176,8 +185,8 @@ class GenieOverlay(private val service: Context) {
         formattingRequest = null
         preparation?.cancel()
         preparation = chatGpt.prepare()
-        view.findViewById<TextView>(R.id.chatgpt_answer).apply { text = ""; visibility = View.GONE }
-        view.findViewById<View>(R.id.chatgpt_plan).visibility = View.GONE
+        view.findViewById<TextView>(R.id.chatgpt_answer).text = ""
+        view.findViewById<View>(R.id.answer_row).visibility = View.GONE
         view.findViewById<TextView>(R.id.speech_transcript).apply {
             text = ""
             visibility = View.GONE
@@ -190,24 +199,23 @@ class GenieOverlay(private val service: Context) {
                     setStatus(view, status)
                 }
                 transcript?.let { displayTranscript(view, it) }
-                if (finished && transcript == null) setMode(view, BoxMode.Transcript)
-                view.findViewById<Button>(R.id.speech_action).apply {
-                    setText(if (hasMicrophonePermission()) R.string.speech_retry else R.string.enable_microphone)
-                    visibility = if (finished) View.VISIBLE else View.GONE
-                    setOnClickListener {
-                        if (hasMicrophonePermission()) startListening(view) else requestMicrophonePermission()
-                    }
+                if (finished && transcript == null) {
+                    setMode(view, BoxMode.Listening)
+                    setPuff(PuffState.Error)
                 }
+                // The shortcut listens again; a button only appears when microphone permission is needed.
+                if (finished && !hasMicrophonePermission()) action(view, R.string.enable_microphone) { requestMicrophonePermission() }
             }
         }, onFinalTranscript = { question ->
             if (popup === view) sendTranscript(view, question)
         }, onLevel = { rmsdB ->
-            if (popup === view) pulseOrb(view, rmsdB)
+            pillPuff?.level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
         }).also { it.start() }
     }
 
     private fun showPermissionNeeded(view: View) {
         setMode(view, BoxMode.Transcript)
+        setPuff(PuffState.Idle)
         setStatus(view, R.string.speech_permission_needed)
         view.findViewById<Button>(R.id.speech_action).apply {
             setText(R.string.enable_microphone)
@@ -230,33 +238,23 @@ class GenieOverlay(private val service: Context) {
         if (mode == BoxMode.Listening) setMode(view, BoxMode.Transcript)
         view.findViewById<TextView>(R.id.speech_transcript).apply {
             text = transcript
-            visibility = View.VISIBLE
+            // Once Genie is thinking, the pill shows only Puff and the status.
+            visibility = if (mode == BoxMode.Transcript) View.VISIBLE else View.GONE
         }
         view.findViewById<TextView>(R.id.current_question).text = transcript
         // Your words replace the status line while you speak.
         if (mode == BoxMode.Transcript) view.findViewById<View>(R.id.speech_status).visibility = View.GONE
     }
 
-    @SuppressLint("SetJavaScriptEnabled")
-    private fun showOrb(view: View) = view.findViewById<WebView>(R.id.orb).apply {
-        // The real thinking-orbs engine, bundled in assets/orb.
-        settings.javaScriptEnabled = true
-        setBackgroundColor(Color.TRANSPARENT)
-        isVerticalScrollBarEnabled = false
-        isHorizontalScrollBarEnabled = false
-        loadUrl("file:///android_asset/orb/index.html")
-    }
-
-    private fun pulseOrb(view: View, rmsdB: Float) {
-        if (mode != BoxMode.Listening && mode != BoxMode.Transcript) return
-        val level = ((rmsdB + 2f) / 12f).coerceIn(0f, 1f)
-        view.findViewById<View>(R.id.orb_frame).animate()
-            .scaleX(0.92f + 0.22f * level).scaleY(0.92f + 0.22f * level).setDuration(120).start()
+    private fun setPuff(state: PuffState) {
+        pillPuff?.state = state
+        answerPuff?.state = state
     }
 
     private fun setStatus(view: View, status: Int) {
         view.findViewById<TextView>(R.id.speech_status).apply {
-            setText(status)
+            // Genie shows Listening while the microphone starts, so there's no separate starting message.
+            setText(if (status == R.string.speech_starting) R.string.speech_listening else status)
             visibility = View.VISIBLE
         }
     }
@@ -265,40 +263,61 @@ class GenieOverlay(private val service: Context) {
         if (mode == next) return
         mode = next
         TransitionManager.beginDelayedTransition(view as ViewGroup, AutoTransition().setDuration(220))
-        val wide = next != BoxMode.Listening
+        // Only the live transcript and the response fill the width; every status is a small pill.
+        val transcript = next == BoxMode.Transcript
         val answer = next == BoxMode.Answer
+        val wide = transcript || answer
         val box = view.findViewById<LinearLayout>(R.id.genie_box)
         box.layoutParams = (box.layoutParams as FrameLayout.LayoutParams).apply {
             width = if (wide) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
         }
-        (box.background as GradientDrawable).cornerRadius = dp(if (answer) 32 else 28).toFloat()
+        placeBox(view)
+        (box.background as GenieBoxDrawable).apply {
+            cornerRadius = boxCorner()
+            lightAngle = if (transcript) 30f else 0f
+        }
         // The handle only appears once there are earlier turns to scroll back to.
         val handle = answer && log.isNotEmpty()
         view.findViewById<View>(R.id.swipe_handle).visibility = if (handle) View.VISIBLE else View.GONE
         view.findViewById<View>(R.id.genie_header).visibility = if (answer) View.GONE else View.VISIBLE
-        if (answer) box.setPadding(dp(16), dp(if (handle) 8 else 16), dp(16), dp(18))
-        else box.setPadding(dp(10), dp(10), dp(if (wide) 20 else 22), dp(10))
+        if (answer) box.setPadding(dp(16), dp(if (handle) 8 else 16), dp(16), dp(16))
+        else box.setPadding(dp(13), dp(8), dp(24), dp(8))
         view.findViewById<View>(R.id.genie_text).apply {
             layoutParams = (layoutParams as LinearLayout.LayoutParams).apply {
                 width = if (wide) 0 else ViewGroup.LayoutParams.WRAP_CONTENT
                 weight = if (wide) 1f else 0f
             }
         }
-        view.findViewById<View>(R.id.orb_frame).apply {
-            visibility = if (answer) View.GONE else View.VISIBLE
-            background = if (next == BoxMode.Transcript) context.getDrawable(R.drawable.genie_orb_glow) else null
-            if (next == BoxMode.Thinking) animate().scaleX(1f).scaleY(1f).setDuration(120).start()
-        }
-        val listening = next == BoxMode.Listening || next == BoxMode.Transcript
+        view.findViewById<View>(R.id.orb_frame).visibility = if (answer) View.GONE else View.VISIBLE
+        setPuff(when (next) {
+            BoxMode.Listening, BoxMode.Transcript -> PuffState.Listening
+            BoxMode.Thinking -> PuffState.Thinking
+            BoxMode.Answer -> PuffState.Speaking
+        })
         view.findViewById<TextView>(R.id.speech_transcript).apply {
-            setTextColor(context.getColor(if (listening) R.color.genie_text else R.color.genie_muted))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (listening) 17f else 15f)
+            visibility = if (transcript && text.isNotEmpty()) View.VISIBLE else View.GONE
         }
-        view.findViewById<TextView>(R.id.speech_status).apply {
-            setTextColor(context.getColor(if (next == BoxMode.Thinking) R.color.genie_text else R.color.genie_muted))
-            visibility = if (answer) View.GONE else View.VISIBLE
-        }
+        view.findViewById<View>(R.id.speech_status).visibility = if (answer) View.GONE else View.VISIBLE
         view.findViewById<View>(R.id.answer_scroll).visibility = if (answer) View.VISIBLE else View.GONE
+    }
+
+    // The box always sits the same inset from the screen edge, so the pill grows into the panel in place.
+    private fun placeBox(view: View) {
+        view.findViewById<View>(R.id.genie_box).apply {
+            layoutParams = (layoutParams as FrameLayout.LayoutParams).apply {
+                bottomMargin = dp(BOX_INSET) + bottomInset
+            }
+        }
+    }
+
+    // The box follows the curve of the display's corners, less its inset. That's 32dp on most phones,
+    // which also makes the 64dp pill fully round.
+    private fun boxCorner(): Float = maxOf(dp(32), displayCorner - dp(BOX_INSET)).toFloat()
+
+    // Clear at the top, darkening toward the bottom of the screen.
+    private fun scrim() = GradientDrawable().apply {
+        orientation = GradientDrawable.Orientation.TOP_BOTTOM
+        setColors(intArrayOf(0x00000000, 0x0D000000, 0x73000000, 0xD1000000.toInt()), floatArrayOf(0f, 0.25f, 0.6f, 1f))
     }
 
     private fun setExpanded(view: View, open: Boolean) {
@@ -308,7 +327,7 @@ class GenieOverlay(private val service: Context) {
         val box = view.findViewById<LinearLayout>(R.id.genie_box)
         box.layoutParams = (box.layoutParams as FrameLayout.LayoutParams).apply {
             height = if (open) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
-            topMargin = if (open) topInset + dp(16) else 0
+            topMargin = if (open) topInset + dp(BOX_INSET) else 0
         }
         val scroll = view.findViewById<PopupScrollView>(R.id.answer_scroll)
         scroll.expanded = open
@@ -322,10 +341,10 @@ class GenieOverlay(private val service: Context) {
         view.findViewById<View>(R.id.link_card).visibility =
             if (!open && linkCard?.url != null) View.VISIBLE else View.GONE
         styleQuestion(view.findViewById(R.id.current_question), bubble = open, first = !open)
-        val answer = view.findViewById<TextView>(R.id.chatgpt_answer)
-        answer.layoutParams = (answer.layoutParams as LinearLayout.LayoutParams).apply {
-            topMargin = dp(if (open) 18 else 12)
+        view.findViewById<View>(R.id.answer_row).apply {
+            layoutParams = (layoutParams as LinearLayout.LayoutParams).apply { topMargin = dp(if (open) 16 else 12) }
         }
+        val answer = view.findViewById<TextView>(R.id.chatgpt_answer)
         focusAnswer(view, answer)
         // The chat log opens on the latest response, then you keep scrolling up through it.
         scroll.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
@@ -347,7 +366,7 @@ class GenieOverlay(private val service: Context) {
             })
             container.addView(TextView(context).apply {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(18) }
+                    ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16) }
                 typeface = context.resources.getFont(R.font.inter)
                 answerRenderer.setAnswer(this, turn.answer)
                 styleAnswer(this, focused = false)
@@ -360,14 +379,15 @@ class GenieOverlay(private val service: Context) {
         question.layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,
             ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             gravity = if (bubble) Gravity.END else Gravity.START
-            topMargin = if (first) 0 else dp(18)
+            topMargin = if (first) 0 else dp(16)
         }
         question.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
-        question.lineHeight = dp(20)
+        question.lineHeight = sp(20f)
         question.setTextColor(context.getColor(if (bubble) R.color.genie_text else R.color.genie_muted))
         question.background = if (bubble) context.getDrawable(R.drawable.genie_bubble) else null
-        if (bubble) question.setPadding(dp(14), dp(9), dp(14), dp(9)) else question.setPadding(0, 0, 0, 0)
+        if (bubble) question.setPadding(dp(12), dp(8), dp(12), dp(8)) else question.setPadding(0, 0, 0, 0)
         question.maxWidth = if (bubble) (context.resources.displayMetrics.widthPixels * 0.7f).toInt() else Int.MAX_VALUE
+        glow(question, bright = bubble)
     }
 
     // The answer you're reading is large and white; the rest of the log is smaller and muted.
@@ -377,6 +397,13 @@ class GenieOverlay(private val service: Context) {
             context.resources.displayMetrics).toInt()
         answer.letterSpacing = if (focused) -0.01f else 0f
         answer.setTextColor(context.getColor(if (focused) R.color.genie_text else R.color.genie_muted))
+        glow(answer, bright = focused)
+    }
+
+    // All Genie text glows softly, like CSS text-shadow 0 0 10px: white text at 35%, grey text at 15%.
+    private fun glow(text: TextView, bright: Boolean) {
+        val radius = (5 * context.resources.displayMetrics.density - 0.5f) / 0.57735f
+        text.setShadowLayer(radius, 0f, 0f, Color.argb(if (bright) 0x59 else 0x26, 255, 255, 255))
     }
 
     private fun answers(view: View): List<TextView> {
@@ -410,6 +437,9 @@ class GenieOverlay(private val service: Context) {
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()
 
+    private fun sp(value: Float): Int =
+        TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, value, context.resources.displayMetrics).toInt()
+
     private fun sendTranscript(view: View, question: String) {
         formattingRequest?.cancel()
         answerTranscript(view, question)
@@ -427,6 +457,7 @@ class GenieOverlay(private val service: Context) {
         val account = chatGpt.store.active()
         if (account?.connected != true) {
             setMode(view, BoxMode.Thinking)
+            setPuff(PuffState.Idle)
             setStatus(view, R.string.chatgpt_connect_needed)
             action(view, R.string.chatgpt_continue) { connectChatGpt(question) }
             return
@@ -442,9 +473,9 @@ class GenieOverlay(private val service: Context) {
         showLog(view)
         setMode(view, BoxMode.Thinking)
         setStatus(view, R.string.chatgpt_thinking)
-        view.findViewById<View>(R.id.chatgpt_plan).visibility = View.VISIBLE
         view.findViewById<View>(R.id.speech_action).visibility = View.GONE
-        view.findViewById<TextView>(R.id.chatgpt_answer).apply { text = ""; visibility = View.VISIBLE }
+        view.findViewById<TextView>(R.id.chatgpt_answer).text = ""
+        view.findViewById<View>(R.id.answer_row).visibility = View.VISIBLE
         var answer = ""
         speechOutput?.beginAnswer()
         answerRequest = chatGpt.answer(history.toList() + ChatTurn("user", question), onText = { text ->
@@ -460,9 +491,13 @@ class GenieOverlay(private val service: Context) {
                 if (expanded) view.findViewById<View>(R.id.link_card).visibility = View.GONE
             }
         }, onSearching = {
-            if (popup === view && mode == BoxMode.Thinking) setStatus(view, R.string.chatgpt_searching)
+            if (popup === view && mode == BoxMode.Thinking) {
+                setStatus(view, R.string.chatgpt_searching)
+                setPuff(PuffState.Searching)
+            }
         }, onDone = { error ->
             if (popup === view) {
+                setPuff(if (error == null) PuffState.Done else PuffState.Error)
                 if (error != null) speechOutput?.stop()
                 error?.let { setStatus(view, it) }
                 when (error) {
@@ -471,7 +506,6 @@ class GenieOverlay(private val service: Context) {
                         history.add(ChatTurn("assistant", answer))
                         finishedTurn = LoggedTurn(view.findViewById<TextView>(R.id.current_question).text, answer)
                         speechOutput?.updateAnswer(answer, true)
-                        action(view, R.string.speech_retry) { startListening(view) }
                     }
                     R.string.chatgpt_connect_needed, R.string.chatgpt_plan_permission_needed ->
                         action(view, R.string.chatgpt_continue) { connectChatGpt(question) }

@@ -93,7 +93,7 @@ class BoxBlur(private val context: Context) {
             }
         }
         // The blur is clipped to the corners of the window's background.
-        val nextCorner = (box.background as? GradientDrawable)?.cornerRadius ?: 0f
+        val nextCorner = (box.background as? GenieBoxDrawable)?.cornerRadius ?: 0f
         if (nextCorner != corner) {
             corner = nextCorner
             window.setBackgroundDrawable(GradientDrawable().apply {

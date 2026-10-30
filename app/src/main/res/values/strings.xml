@@ -63,10 +63,9 @@
     <string name="speech_listening">Listening…</string>
     <string name="speech_processing">Finishing transcription…</string>
     <string name="speech_done">Here’s what you said</string>
-    <string name="speech_retry">Listen again</string>
     <string name="speech_permission_needed">Allow microphone access to start listening.</string>
     <string name="speech_unavailable">No Android speech service is available. Install or enable one in Android settings.</string>
-    <string name="speech_no_match">Didn’t catch that. Try speaking again.</string>
+    <string name="speech_no_match">Didn’t catch that</string>
     <string name="speech_network_error">Speech recognition couldn’t connect. Check your internet connection and try again.</string>
     <string name="speech_audio_error">Couldn’t access the microphone. Check Android’s microphone controls and try again.</string>
     <string name="speech_busy">The speech service is busy. Try again in a moment.</string>
@@ -79,7 +78,7 @@
     <string name="chatgpt_connect_needed">Connect ChatGPT to answer your question.</string>
     <string name="open_webpage">Open %1$s on %2$s</string>
     <string name="chatgpt_searching">Searching the web…</string>
-    <string name="chatgpt_thinking">Asking ChatGPT…</string>
+    <string name="chatgpt_thinking">Thinking…</string>
     <string name="chatgpt_retry">Try again</string>
     <string name="chatgpt_account">ChatGPT account</string>
     <string name="chatgpt_account_connected">%1$s · Using ChatGPT plan</string>
@@ -87,7 +86,6 @@
     <string name="chatgpt_add_account">Add a ChatGPT account</string>
     <string name="chatgpt_sign_out">Sign out of the active account</string>
     <string name="chatgpt_manage_usage">Manage usage</string>
-    <string name="chatgpt_using_plan">Using ChatGPT plan · Manage usage</string>
     <string name="chatgpt_browser_help">Complete sign-in and approve ChatGPT plan usage in your browser, then select Return to Genie.</string>
     <string name="chatgpt_browser_unavailable">Install or enable a browser to continue with ChatGPT.</string>
     <string name="chatgpt_welcome_title">You’re using your ChatGPT plan</string>
