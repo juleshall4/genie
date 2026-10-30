@@ -5,7 +5,6 @@ import android.animation.LayoutTransition
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
@@ -168,8 +167,8 @@ class GenieOverlay(private val service: Context) {
         view.findViewById<View>(R.id.genie_box).background = GenieBoxDrawable(context.resources.displayMetrics.density)
         pillPuff = PuffDrawable().also { view.findViewById<ImageView>(R.id.puff).setImageDrawable(it) }
         answerPuff = PuffDrawable().also { view.findViewById<ImageView>(R.id.answer_puff).setImageDrawable(it) }
-        for (id in listOf(R.id.speech_status, R.id.speech_transcript, R.id.chatgpt_answer, R.id.link_title)) glow(view.findViewById(id), bright = true)
-        for (id in listOf(R.id.current_question, R.id.link_domain, R.id.link_description)) glow(view.findViewById(id), bright = false)
+        for (id in listOf(R.id.speech_status, R.id.speech_transcript, R.id.chatgpt_answer, R.id.link_title)) view.findViewById<TextView>(id).glow(bright = true)
+        for (id in listOf(R.id.current_question, R.id.link_domain, R.id.link_description)) view.findViewById<TextView>(id).glow(bright = false)
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
@@ -458,7 +457,7 @@ class GenieOverlay(private val service: Context) {
         question.background = if (bubble) context.getDrawable(R.drawable.genie_bubble) else null
         if (bubble) question.setPadding(dp(12), dp(8), dp(12), dp(8)) else question.setPadding(0, 0, 0, 0)
         question.maxWidth = if (bubble) (context.resources.displayMetrics.widthPixels * 0.7f).toInt() else Int.MAX_VALUE
-        glow(question, bright = bubble)
+        question.glow(bright = bubble)
     }
 
     // The answer you're reading is large and white; the rest of the log is smaller and muted.
@@ -468,14 +467,7 @@ class GenieOverlay(private val service: Context) {
             context.resources.displayMetrics).toInt()
         answer.letterSpacing = if (focused) -0.01f else 0f
         answer.setTextColor(context.getColor(if (focused) R.color.genie_text else R.color.genie_muted))
-        glow(answer, bright = focused)
-    }
-
-    // All Genie text glows, like CSS text-shadow 0 0 12px: white text at 80%, grey text at 48%.
-    // Thin strokes spread little light, so anything weaker barely shows on the black box.
-    private fun glow(text: TextView, bright: Boolean) {
-        val radius = (6 * context.resources.displayMetrics.density - 0.5f) / 0.57735f
-        text.setShadowLayer(radius, 0f, 0f, Color.argb(if (bright) 0xCC else 0x7A, 255, 255, 255))
+        answer.glow(bright = focused)
     }
 
     private fun answers(view: View): List<TextView> {
