@@ -33,8 +33,8 @@ import dev.genie.android.chatgpt.ChatGptClient
 import dev.genie.android.chatgpt.ChatGptRequest
 import dev.genie.android.chatgpt.ChatTurn
 
-// The box starts as a small listening pill, widens for the live transcript and
-// thinking, then grows into the response box.
+// The box starts as a small listening pill, grows with the live transcript, shrinks
+// back while thinking, then grows into the response box.
 private enum class BoxMode { Listening, Transcript, Thinking, Answer }
 
 // How far the box sits from the screen edges, in dp.
@@ -149,15 +149,20 @@ class GenieOverlay(private val service: Context) {
         }
         view.findViewById<PopupScrollView>(R.id.answer_scroll).apply {
             // Scrolling up from the latest response opens the chat log; scrolling down past its end closes it.
-            onPullPastTop = { if (mode == BoxMode.Answer && !expanded && log.isNotEmpty()) setExpanded(view, true) }
-            onPullPastBottom = { if (expanded) setExpanded(view, false) }
+            onPullPastTop = { (mode == BoxMode.Answer && !expanded && log.isNotEmpty()).also { if (it) setExpanded(view, true) } }
+            onPullPastBottom = { expanded.also { if (it) setExpanded(view, false) } }
+            // The log fades out under the box's top and bottom edges; the response alone doesn't need to.
+            isVerticalFadingEdgeEnabled = false
             setOnScrollChangeListener { _, _, _, _, _ -> if (expanded) focusNearestAnswer(view) }
         }
         view.setOnApplyWindowInsetsListener { _, insets ->
-            bottomInset = insets.getInsets(WindowInsets.Type.systemBars()).bottom
-            topInset = insets.getInsets(WindowInsets.Type.systemBars()).top
+            // A window that lays out beyond the screen's limits gets no insets of its own, so ask for the screen's.
+            val screen = windowManager.currentWindowMetrics.windowInsets
+            val bars = screen.getInsets(WindowInsets.Type.systemBars())
+            bottomInset = bars.bottom
+            topInset = bars.top
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                displayCorner = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)?.radius ?: 0
+                displayCorner = screen.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)?.radius ?: 0
             }
             placeBox(view)
             (view.findViewById<View>(R.id.genie_box).background as GenieBoxDrawable).cornerRadius = boxCorner()
@@ -173,10 +178,13 @@ class GenieOverlay(private val service: Context) {
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+            // The window covers the status bar too, so the scrim and the box's shade aren't cut off below it.
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT
         ).apply {
             fitInsetsTypes = 0
+            layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
             title = context.getString(R.string.app_name)
         }
         // The blur window goes in first so it sits under the overlay.
@@ -307,8 +315,8 @@ class GenieOverlay(private val service: Context) {
             animate().translationY(0f).setDuration(ENTER_MILLIS).setInterpolator(OvershootInterpolator(1.2f))
         }
         view.post {
-            for (id in listOf(R.id.overlay_root, R.id.genie_box, R.id.genie_header, R.id.genie_text,
-                R.id.conversation, R.id.history_log, R.id.answer_row)) {
+            // Only the box and its pill animate; text inside the scrolling log moves instantly, so it never overlaps.
+            for (id in listOf(R.id.overlay_root, R.id.genie_box, R.id.genie_header, R.id.genie_text)) {
                 view.findViewById<ViewGroup>(id).layoutTransition = smoothLayout()
             }
         }
@@ -330,10 +338,10 @@ class GenieOverlay(private val service: Context) {
     private fun setMode(view: View, next: BoxMode) {
         if (mode == next) return
         mode = next
-        // Only the live transcript and the response fill the width; every status is a small pill.
+        // Only the response fills the width. The pill fits its status, and grows with your words as you speak.
         val transcript = next == BoxMode.Transcript
         val answer = next == BoxMode.Answer
-        val wide = transcript || answer
+        val wide = answer
         val box = view.findViewById<LinearLayout>(R.id.genie_box)
         box.layoutParams = (box.layoutParams as FrameLayout.LayoutParams).apply {
             width = if (wide) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
@@ -394,12 +402,14 @@ class GenieOverlay(private val service: Context) {
     private fun setExpanded(view: View, open: Boolean) {
         if (expanded == open) return
         expanded = open
+        val scroll = view.findViewById<PopupScrollView>(R.id.answer_scroll)
+        // The latest response stays where it is while the box grows up into the log, or shrinks back down.
+        scroll.hold(view.findViewById(R.id.answer_row), RESIZE_MILLIS * 2)
         val box = view.findViewById<LinearLayout>(R.id.genie_box)
         box.layoutParams = (box.layoutParams as FrameLayout.LayoutParams).apply {
             height = if (open) ViewGroup.LayoutParams.MATCH_PARENT else ViewGroup.LayoutParams.WRAP_CONTENT
             topMargin = if (open) topInset + dp(BOX_INSET) else 0
         }
-        val scroll = view.findViewById<PopupScrollView>(R.id.answer_scroll)
         scroll.expanded = open
         scroll.layoutParams = (scroll.layoutParams as LinearLayout.LayoutParams).apply {
             height = if (open) 0 else ViewGroup.LayoutParams.WRAP_CONTENT
@@ -414,15 +424,7 @@ class GenieOverlay(private val service: Context) {
         view.findViewById<View>(R.id.answer_row).apply {
             layoutParams = (layoutParams as LinearLayout.LayoutParams).apply { topMargin = dp(if (open) 16 else 12) }
         }
-        val answer = view.findViewById<TextView>(R.id.chatgpt_answer)
-        focusAnswer(view, answer)
-        // The chat log opens on the latest response, then you keep scrolling up through it.
-        scroll.addOnLayoutChangeListener(object : View.OnLayoutChangeListener {
-            override fun onLayoutChange(v: View, l: Int, t: Int, r: Int, b: Int, ol: Int, ot: Int, or: Int, ob: Int) {
-                scroll.removeOnLayoutChangeListener(this)
-                scroll.scrollTo(0, if (open) view.findViewById<View>(R.id.conversation).height else 0)
-            }
-        })
+        focusAnswer(view, view.findViewById(R.id.chatgpt_answer))
     }
 
     private fun showLog(view: View) {
@@ -438,6 +440,8 @@ class GenieOverlay(private val service: Context) {
                 layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(16) }
                 typeface = context.resources.getFont(R.font.inter)
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
+                lineHeight = sp(24f)
                 answerRenderer.setAnswer(this, turn.answer)
                 styleAnswer(this, focused = false)
             })
@@ -460,12 +464,9 @@ class GenieOverlay(private val service: Context) {
         question.glow(bright = bubble)
     }
 
-    // The answer you're reading is large and white; the rest of the log is smaller and muted.
+    // The answer you're reading is white; the rest of the log is muted. Only the colour changes, never the
+    // size, so the log doesn't reflow and jump while you scroll it. Earlier answers are smaller than the latest.
     private fun styleAnswer(answer: TextView, focused: Boolean) {
-        answer.setTextSize(TypedValue.COMPLEX_UNIT_SP, if (focused) 22f else 17f)
-        answer.lineHeight = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, if (focused) 29f else 24f,
-            context.resources.displayMetrics).toInt()
-        answer.letterSpacing = if (focused) -0.01f else 0f
         answer.setTextColor(context.getColor(if (focused) R.color.genie_text else R.color.genie_muted))
         answer.glow(bright = focused)
     }
@@ -490,13 +491,10 @@ class GenieOverlay(private val service: Context) {
             answer.getDrawingRect(it)
             content.offsetDescendantRectToMyCoords(answer, it)
         }
+        // The answer under the middle of the box, or failing that, the closest one to it.
         val nearest = if (!scroll.canScrollVertically(1)) all.last()
-            else all.minBy { kotlin.math.abs(bounds(it).centerY() - center) }
-        if (nearest === focusedAnswer) return
-        // Keep the newly focused answer where it is on screen while the text sizes change.
-        val anchor = bounds(nearest).top - scroll.scrollY
-        focusAnswer(view, nearest)
-        content.post { scroll.scrollTo(0, bounds(nearest).top - anchor) }
+            else all.minBy { bounds(it).run { if (center < top) top - center else maxOf(0, center - bottom) } }
+        if (nearest !== focusedAnswer) focusAnswer(view, nearest)
     }
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density).toInt()

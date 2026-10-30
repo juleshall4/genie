@@ -85,6 +85,7 @@
             android:layout_height="wrap_content"
             android:fadingEdgeLength="64dp"
             android:fillViewport="true"
+            android:requiresFadingEdge="vertical"
             android:overScrollMode="never"
             android:scrollbarThumbVertical="@drawable/genie_scroll_thumb"
             android:scrollbarStyle="outsideOverlay"
