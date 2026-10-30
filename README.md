@@ -13,6 +13,18 @@ ADB captured the Titan 2 button as scan code `249` (`0xF9`) on `mtk-pmic-keys`. 
 
 The physical keyboard's Space key types normally. Android emulators using `ranchu` or `goldfish` hardware retain the Space activation shortcut.
 
+## Onboarding
+
+The first time you open Genie, Puff talks you through setup: microphone, the Genie shortcut, the action button, and ChatGPT. Steps that are already done are skipped. To replay it, go to **Settings** > **Meet Puff again**.
+
+To open onboarding from a computer during development, run:
+
+```sh
+adb shell am start -n dev.genie.android/.OnboardingActivity --ez reset true
+```
+
+The `reset` extra plays onboarding like a fresh install: it forgets that onboarding was finished and shows every step, including steps that are already done. Leave it out to open onboarding the way **Meet Puff again** does.
+
 ## Personality and model defaults
 
 The **Personality** box in settings starts with Genie's original prompt:

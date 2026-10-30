@@ -36,6 +36,11 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!OnboardingActivity.isDone(this)) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
         setContentView(R.layout.activity_main)
 
         findViewById<android.view.View>(R.id.main_root).setOnApplyWindowInsetsListener { view, insets ->
@@ -53,6 +58,9 @@ class MainActivity : Activity() {
             if (hasMicrophonePermission()) {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null)))
             } else MicrophonePermissionActivity.launch(this)
+        }
+        findViewById<View>(R.id.meet_puff_row).setOnClickListener {
+            startActivity(Intent(this, OnboardingActivity::class.java))
         }
         findViewById<View>(R.id.chatgpt_settings).setOnClickListener { manageChatGpt() }
         findViewById<View>(R.id.chatgpt_usage).setOnClickListener {

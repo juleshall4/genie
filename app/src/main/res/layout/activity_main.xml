@@ -72,6 +72,14 @@
                     style="@style/Settings.Value" />
                 <ImageView style="@style/Settings.Chevron" />
             </LinearLayout>
+            <LinearLayout
+                android:id="@+id/meet_puff_row"
+                style="@style/Settings.Row">
+                <TextView
+                    style="@style/Settings.Label"
+                    android:text="@string/settings_meet_puff" />
+                <ImageView style="@style/Settings.Chevron" />
+            </LinearLayout>
         </LinearLayout>
 
         <TextView

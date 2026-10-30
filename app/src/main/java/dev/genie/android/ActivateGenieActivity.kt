@@ -8,7 +8,8 @@ import android.os.Bundle
 class ActivateGenieActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (savedInstanceState == null && !GenieShortcutService.requestActivation()) {
+        // While onboarding waits for a test press, the press goes to Puff instead of opening Genie.
+        if (savedInstanceState == null && !OnboardingActivity.buttonPressed() && !GenieShortcutService.requestActivation()) {
             startActivity(Intent(this, MainActivity::class.java))
         }
         finish()
